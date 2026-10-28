@@ -1,4 +1,4 @@
-name: Build WANAS APK - ORIGINAL FIXED
+name: Build WANAS APK - ORIGINAL WORKING
 on:
   push:
     branches: [ main ]
@@ -8,22 +8,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Use ZIP As-Is - Don't Delete
+      - name: Unzip Original
         run: |
           unzip -o WANAS-COMPLETE.zip
-          if [ -d "WANAS-COMPLETE" ]; then
-            cp -r WANAS-COMPLETE/* . 2>/dev/null || true
-            cp -r WANAS-COMPLETE/.* . 2>/dev/null || true
-          fi
+          if [ -d "WANAS-COMPLETE" ]; then mv WANAS-COMPLETE/* .; mv WANAS-COMPLETE/.* . 2>/dev/null || true; fi
           rm -rf WANAS-COMPLETE.zip __MACOSX
-          echo "VITE_SUPABASE_URL=https://urlppfobxllsdconvgff.supabase.co" > .env
-          echo "VITE_SUPABASE_ANON_KEY=sb_publishable_Bf--VPuQC323eob492vUVg_syT4Zzk9" >> .env
-          echo "VITE_API_URL=https://wanas-apk-global.vercel.app" >> .env
-          echo "VITE_SERVER_URL=https://wanas-apk-global.vercel.app" >> .env
-          echo "SUPABASE_URL=https://urlppfobxllsdconvgff.supabase.co" >> .env
-          echo "DATABASE_URL=postgresql://postgres:%40Wanas1234567890qw@db.urlppfobxllsdconvgff.supabase.co:5432/postgres" >> .env
-          ls -lh
-          cat .env
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -31,17 +20,17 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Build APK Original
+      - name: Build Original APK
         run: |
           npm install --legacy-peer-deps
           npm run build
           npx cap sync android
           cd android
           chmod +x gradlew
-          ./gradlew clean assembleDebug
+          ./gradlew assembleDebug
           ls -lh app/build/outputs/apk/debug/
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: WANAS-ORIGINAL-12MB
+          name: WANAS-ORIGINAL-WORKING
           path: android/app/build/outputs/apk/debug/app-debug.apk
