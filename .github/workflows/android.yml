@@ -1,4 +1,4 @@
-name: Build WANAS APK - FIXED FINAL
+name: Build WANAS APK - ORIGINAL FIXED
 on:
   push:
     branches: [ main ]
@@ -8,27 +8,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Unzip and Fix
+      - name: Use ZIP As-Is - Don't Delete
         run: |
-          rm -rf android dist build node_modules
           unzip -o WANAS-COMPLETE.zip
-          if [ -d "WANAS-COMPLETE" ]; then mv WANAS-COMPLETE/* .; mv WANAS-COMPLETE/.* . 2>/dev/null || true; fi
-          rm -rf WANAS-COMPLETE WANAS-COMPLETE.zip __MACOSX android
-          cat > capacitor.config.json << 'EOF'
-          {
-            "appId": "com.wanas.app",
-            "appName": "WANAS",
-            "webDir": "dist",
-            "bundledWebRuntime": false,
-            "server": { "androidScheme": "https" }
-          }
-          EOF
+          if [ -d "WANAS-COMPLETE" ]; then
+            cp -r WANAS-COMPLETE/* . 2>/dev/null || true
+            cp -r WANAS-COMPLETE/.* . 2>/dev/null || true
+          fi
+          rm -rf WANAS-COMPLETE.zip __MACOSX
           echo "VITE_SUPABASE_URL=https://urlppfobxllsdconvgff.supabase.co" > .env
           echo "VITE_SUPABASE_ANON_KEY=sb_publishable_Bf--VPuQC323eob492vUVg_syT4Zzk9" >> .env
           echo "VITE_API_URL=https://wanas-apk-global.vercel.app" >> .env
           echo "VITE_SERVER_URL=https://wanas-apk-global.vercel.app" >> .env
+          echo "SUPABASE_URL=https://urlppfobxllsdconvgff.supabase.co" >> .env
           echo "DATABASE_URL=postgresql://postgres:%40Wanas1234567890qw@db.urlppfobxllsdconvgff.supabase.co:5432/postgres" >> .env
-          cat capacitor.config.json
+          ls -lh
+          cat .env
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -36,14 +31,11 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Build APK
+      - name: Build APK Original
         run: |
           npm install --legacy-peer-deps
           npm run build
-          ls -lh dist/
-          npx cap add android
           npx cap sync android
-          npx cap copy android
           cd android
           chmod +x gradlew
           ./gradlew clean assembleDebug
@@ -51,5 +43,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: WANAS-FIXED-12MB
+          name: WANAS-ORIGINAL-12MB
           path: android/app/build/outputs/apk/debug/app-debug.apk
