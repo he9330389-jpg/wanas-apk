@@ -1,4 +1,4 @@
-name: Build WANAS APK - FINAL GLOBAL
+name: Build WANAS APK - FIXED ICON NAME
 on:
   push:
     branches: [ main ]
@@ -8,20 +8,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Unzip and Setup Global Server
+      - name: Unzip and Fix Config
         run: |
-          rm -rf android dist node_modules
+          rm -rf android dist build node_modules
           unzip -o WANAS-COMPLETE.zip
           if [ -d "WANAS-COMPLETE" ]; then mv WANAS-COMPLETE/* .; mv WANAS-COMPLETE/.* . 2>/dev/null || true; fi
           rm -rf WANAS-COMPLETE WANAS-COMPLETE.zip __MACOSX
+          # نظبط capacitor.config.ts عشان الاسم والأيقونة
+          cat > capacitor.config.ts << 'EOF'
+          import { CapacitorConfig } from '@capacitor/cli';
+          const config: CapacitorConfig = {
+            appId: 'com.wanas.app',
+            appName: 'WANAS',
+            webDir: 'dist',
+            server: {
+              androidScheme: 'https'
+            }
+          };
+          export default config;
+          EOF
           echo "VITE_SUPABASE_URL=https://urlppfobxllsdconvgff.supabase.co" > .env
           echo "VITE_SUPABASE_ANON_KEY=sb_publishable_Bf--VPuQC323eob492vUVg_syT4Zzk9" >> .env
           echo "VITE_API_URL=https://wanas-apk-global.vercel.app" >> .env
           echo "VITE_SERVER_URL=https://wanas-apk-global.vercel.app" >> .env
-          echo "NEXT_PUBLIC_SUPABASE_URL=https://urlppfobxllsdconvgff.supabase.co" >> .env
-          echo "SUPABASE_URL=https://urlppfobxllsdconvgff.supabase.co" >> .env
-          echo "DATABASE_URL=postgresql://postgres:%40Wanas1234567890qw@db.urlppfobxllsdconvgff.supabase.co:5432/postgres" >> .env
           cat .env
+          cat capacitor.config.ts
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -29,16 +40,21 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Build Global APK
+      - name: Build Fixed APK
         run: |
           npm install --legacy-peer-deps
           npm run build
+          ls -lh dist/ || ls -lh build/ || echo "no dist"
+          npx cap add android || true
           npx cap sync android
+          npx cap copy android
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug
-      - name: Upload APK
+          ./gradlew clean
+          ./gradlew assembleDebug --stacktrace
+          ls -lh app/build/outputs/apk/debug/
+      - name: Upload Fixed APK
         uses: actions/upload-artifact@v4
         with:
-          name: WANAS-FINAL-GLOBAL-20MB
+          name: WANAS-FIXED-ICON-NAME
           path: android/app/build/outputs/apk/debug/app-debug.apk
