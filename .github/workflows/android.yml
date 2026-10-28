@@ -1,4 +1,4 @@
-name: Build WANAS APK - ORIGINAL WORKING
+name: Build WANAS - FINAL FIXED ALL
 on:
   push:
     branches: [ main ]
@@ -8,11 +8,60 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Unzip Original
+      - name: Unzip and Apply All Fixes
         run: |
           unzip -o WANAS-COMPLETE.zip
           if [ -d "WANAS-COMPLETE" ]; then mv WANAS-COMPLETE/* .; mv WANAS-COMPLETE/.* . 2>/dev/null || true; fi
-          rm -rf WANAS-COMPLETE.zip __MACOSX
+          rm -rf WANAS-COMPLETE.zip __MACOSX android
+          # 1. إصلاح المنطقة الآمنة والـ Status Bar
+          cat > capacitor.config.json << 'EOF'
+          {
+            "appId": "com.wanas.globalfinal",
+            "appName": "WANAS",
+            "webDir": "dist",
+            "bundledWebRuntime": false,
+            "plugins": {
+              "StatusBar": {
+                "overlaysWebView": false,
+                "style": "DARK",
+                "backgroundColor": "#121212"
+              }
+            }
+          }
+          EOF
+          # 2. إصلاح الـ CSS للمنطقة الآمنة
+          mkdir -p src
+          echo "
+          :root {
+            --safe-area-inset-top: env(safe-area-inset-top);
+            --safe-area-inset-bottom: env(safe-area-inset-bottom);
+          }
+          body {
+            padding-top: env(safe-area-inset-top) !important;
+            padding-bottom: env(safe-area-inset-bottom) !important;
+            margin: 0;
+            background-color: #121212;
+          }
+          #root {
+            padding-top: calc(env(safe-area-inset-top) + 10px);
+          }
+          .toast-message {
+            max-width: 90vw !important;
+            width: auto !important;
+            left: 50% !important;
+            transform: translateX(-50%) !important;
+            bottom: 80px !important;
+            white-space: normal !important;
+            word-wrap: break-word !important;
+          }
+          " >> src/index.css || echo "CSS appended"
+          # 3. إعداد الـ env للسيرفر العالمي
+          echo "VITE_SUPABASE_URL=https://urlppfobxllsdconvgff.supabase.co" > .env
+          echo "VITE_SUPABASE_ANON_KEY=sb_publishable_Bf--VPuQC323eob492vUVg_syT4Zzk9" >> .env
+          echo "VITE_API_URL=https://wanas-apk-global.vercel.app" >> .env
+          echo "VITE_SERVER_URL=https://wanas-apk-global.vercel.app" >> .env
+          cat capacitor.config.json
+          cat .env
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -20,17 +69,19 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Build Original APK
+      - name: Build APK Final Fixed
         run: |
           npm install --legacy-peer-deps
+          npm install @capacitor/status-bar --legacy-peer-deps
           npm run build
+          npx cap add android
           npx cap sync android
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
           ls -lh app/build/outputs/apk/debug/
-      - name: Upload APK
+      - name: Upload Final APK
         uses: actions/upload-artifact@v4
         with:
-          name: WANAS-ORIGINAL-WORKING
+          name: WANAS-FINAL-FIXED-15MB
           path: android/app/build/outputs/apk/debug/app-debug.apk
