@@ -11,12 +11,19 @@ jobs:
       - name: Unzip Project
         run: |
           unzip -o WANAS-COMPLETE.zip
-          if [ -d "WANAS-COMPLETE" ]; then
-            mv WANAS-COMPLETE/* .
-            mv WANAS-COMPLETE/.* . 2>/dev/null || true
-          fi
+          if [ -d "WANAS-COMPLETE" ]; then mv WANAS-COMPLETE/* .; mv WANAS-COMPLETE/.* . 2>/dev/null || true; fi
+          if [ -d "wanas-complete-github-ready" ]; then mv wanas-complete-github-ready/* . 2>/dev/null || true; fi
           rm -rf WANAS-COMPLETE WANAS-COMPLETE.zip
           ls -la
+      - name: Create env file with Supabase keys
+        run: |
+          echo "VITE_SUPABASE_URL=https://urlppfobxllsdconvgff.supabase.co" > .env
+          echo "VITE_SUPABASE_ANON_KEY=sb_publishable_Bf--VPuQC323eob492vUVg_syT4Zzk9" >> .env
+          echo "NEXT_PUBLIC_SUPABASE_URL=https://urlppfobxllsdconvgff.supabase.co" >> .env
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_Bf--VPuQC323eob492vUVg_syT4Zzk9" >> .env
+          echo "SUPABASE_URL=https://urlppfobxllsdconvgff.supabase.co" >> .env
+          echo "SUPABASE_ANON_KEY=sb_publishable_Bf--VPuQC323eob492vUVg_syT4Zzk9" >> .env
+          cat .env
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -38,5 +45,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: WANAS-APK-app.wanas.social
+          name: WANAS-APK-FIXED-LOGIN
           path: android/app/build/outputs/apk/debug/app-debug.apk
