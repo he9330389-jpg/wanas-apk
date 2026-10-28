@@ -11,6 +11,11 @@ jobs:
       - name: Unzip Project
         run: |
           unzip -o WANAS-COMPLETE.zip
+          if [ -d "WANAS-COMPLETE" ]; then
+            mv WANAS-COMPLETE/* .
+            mv WANAS-COMPLETE/.* . 2>/dev/null || true
+          fi
+          rm -rf WANAS-COMPLETE WANAS-COMPLETE.zip
           ls -la
       - uses: actions/setup-node@v4
         with:
