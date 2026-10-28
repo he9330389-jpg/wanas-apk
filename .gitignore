@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+keystore.properties
+android/app/build/
+android/build/
+android/.gradle/
+android/local.properties
+android/app/release/
+.DS_Store
+.vercel
