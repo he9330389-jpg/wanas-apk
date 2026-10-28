@@ -1,4 +1,4 @@
-name: Build WANAS - FINAL FIXED ALL
+name: Build WANAS - FIXED LOGIN + SAFE AREA
 on:
   push:
     branches: [ main ]
@@ -8,18 +8,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Unzip and Apply All Fixes
+      - name: Unzip and Fix Login + Safe Area
         run: |
           unzip -o WANAS-COMPLETE.zip
           if [ -d "WANAS-COMPLETE" ]; then mv WANAS-COMPLETE/* .; mv WANAS-COMPLETE/.* . 2>/dev/null || true; fi
           rm -rf WANAS-COMPLETE.zip __MACOSX android
-          # 1. إصلاح المنطقة الآمنة والـ Status Bar
           cat > capacitor.config.json << 'EOF'
           {
-            "appId": "com.wanas.globalfinal",
+            "appId": "com.wanas.globalfinal2",
             "appName": "WANAS",
             "webDir": "dist",
-            "bundledWebRuntime": false,
             "plugins": {
               "StatusBar": {
                 "overlaysWebView": false,
@@ -29,39 +27,21 @@ jobs:
             }
           }
           EOF
-          # 2. إصلاح الـ CSS للمنطقة الآمنة
-          mkdir -p src
-          echo "
-          :root {
-            --safe-area-inset-top: env(safe-area-inset-top);
-            --safe-area-inset-bottom: env(safe-area-inset-bottom);
-          }
-          body {
-            padding-top: env(safe-area-inset-top) !important;
-            padding-bottom: env(safe-area-inset-bottom) !important;
-            margin: 0;
-            background-color: #121212;
-          }
-          #root {
-            padding-top: calc(env(safe-area-inset-top) + 10px);
-          }
-          .toast-message {
-            max-width: 90vw !important;
-            width: auto !important;
-            left: 50% !important;
-            transform: translateX(-50%) !important;
-            bottom: 80px !important;
-            white-space: normal !important;
-            word-wrap: break-word !important;
-          }
-          " >> src/index.css || echo "CSS appended"
-          # 3. إعداد الـ env للسيرفر العالمي
-          echo "VITE_SUPABASE_URL=https://urlppfobxllsdconvgff.supabase.co" > .env
+          # هنا الحل - بنحط VITE_API_ORIGIN مش VITE_API_URL
+          echo "VITE_API_ORIGIN=https://wanas-apk-global.vercel.app" > .env
+          echo "VITE_SUPABASE_URL=https://urlppfobxllsdconvgff.supabase.co" >> .env
           echo "VITE_SUPABASE_ANON_KEY=sb_publishable_Bf--VPuQC323eob492vUVg_syT4Zzk9" >> .env
           echo "VITE_API_URL=https://wanas-apk-global.vercel.app" >> .env
           echo "VITE_SERVER_URL=https://wanas-apk-global.vercel.app" >> .env
-          cat capacitor.config.json
+          echo "DATABASE_URL=postgresql://postgres:%40Wanas1234567890qw@db.urlppfobxllsdconvgff.supabase.co:5432/postgres" >> .env
           cat .env
+          # إصلاح المنطقة الآمنة
+          echo "
+          :root { --safe-area-inset-top: env(safe-area-inset-top); --safe-area-inset-bottom: env(safe-area-inset-bottom); }
+          body { padding-top: env(safe-area-inset-top) !important; padding-bottom: env(safe-area-inset-bottom) !important; }
+          #root { padding-top: calc(env(safe-area-inset-top) + 12px) !important; }
+          .toast-message { max-width: 90vw !important; left: 50% !important; transform: translateX(-50%) !important; bottom: 90px !important; }
+          " >> src/index.css
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -69,7 +49,7 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      - name: Build APK Final Fixed
+      - name: Build APK
         run: |
           npm install --legacy-peer-deps
           npm install @capacitor/status-bar --legacy-peer-deps
@@ -79,9 +59,8 @@ jobs:
           cd android
           chmod +x gradlew
           ./gradlew assembleDebug
-          ls -lh app/build/outputs/apk/debug/
-      - name: Upload Final APK
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: WANAS-FINAL-FIXED-15MB
+          name: WANAS-FIXED-LOGIN-SAFEAREA
           path: android/app/build/outputs/apk/debug/app-debug.apk
