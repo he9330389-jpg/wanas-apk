@@ -19,11 +19,11 @@ jobs:
           ls -la
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
       - name: Install deps
         run: npm install --legacy-peer-deps
       - name: Build web
