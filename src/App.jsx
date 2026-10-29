@@ -23,8 +23,7 @@ function Avatar({ profile, size = 'md' }) {
     : <span className={`avatar avatar-${size} avatar-fallback`} aria-label={name}>{initials(name)}</span>
 }
 
-function AppHeader({ profile, onSignOut, onDeleteAccount, setTab, notify }) {
-  const [open, setOpen] = useState(false)
+function AppHeader({ profile, setTab, notify }) {
   return <header className="app-header"><div className="header-inner">
     <div className="brand-lockup"><div className="brand-mark">g</div><span>WANAS</span></div>
     <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -32,11 +31,6 @@ function AppHeader({ profile, onSignOut, onDeleteAccount, setTab, notify }) {
       <button className="icon-button" title="بحث" onClick={() => setTab('search')}><span style={{ fontSize: '16px' }}>⌕</span></button>
       <button className="icon-button" title="التنبيهات" onClick={() => setTab('notifications')}><span style={{ fontSize: '16px' }}>🔔</span></button>
       <button className="icon-button" title="الملف الشخصي" onClick={() => setTab('profile')} style={{ padding: 0, overflow: 'hidden' }}><Avatar profile={profile} size="sm" /></button>
-      {open && <div className="account-menu">
-        <strong>{profile?.display_name || profile?.username}</strong><span dir="ltr">@{profile?.username}</span>
-        <button onClick={onSignOut}>تسجيل الخروج</button>
-        <button className="danger-text" onClick={onDeleteAccount}>حذف الحساب نهائيًا</button>
-      </div>}
     </div>
   </div></header>
 }
@@ -197,7 +191,7 @@ function ProfilePanel({ profile, viewerId, onSaved, setTab, notify }) {
   </section>
 }
 
-function SettingsView({ notify }) {
+function SettingsView({ onSignOut, onDeleteAccount, notify }) {
   return <section className="panel section-panel">
     <h2>⚙️ إعدادات التطبيق</h2>
     <div className="form-stack" style={{ gap: '15px', marginTop: '15px' }}>
@@ -213,7 +207,10 @@ function SettingsView({ notify }) {
           <option>أسود قاتم (#000)</option>
         </select>
       </label>
-      <button className="button secondary" onClick={() => notify('تم الحفظ بنجاح', 'success')}>حفظ الإعدادات</button>
+      <div style={{ borderTop: '1px solid #161616', paddingTop: '15px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        <button className="button secondary" onClick={onSignOut} style={{ width: '100%' }}>تسجيل الخروج</button>
+        <button className="button danger-text" onClick={onDeleteAccount} style={{ width: '100%', background: '#200', border: '1px solid #500' }}>حذف الحساب نهائيًا</button>
+      </div>
     </div>
   </section>
 }
@@ -333,7 +330,7 @@ export default function App({ session, onSignOut, onDeleteAccount }) {
   const visiblePosts = tab === 'saved' ? savedPosts : posts
 
   return <div className="app-shell" dir="rtl">
-    <AppHeader profile={profile} onSignOut={onSignOut} onDeleteAccount={onDeleteAccount} setTab={setTab} notify={notify} />
+    <AppHeader profile={profile} setTab={setTab} notify={notify} />
     <main className="main-content">
       <div className="page-heading"><div><p className="eyebrow">مساحة الونس</p><h1>{tab === 'home' ? 'آخر المنشورات' : tab === 'video' ? 'فيديو' : tab === 'councils' ? 'المجالس' : tab === 'messages' ? 'الرسائل' : tab === 'settings' ? 'إعدادات التطبيق' : tab === 'profile' ? 'ملفي الشخصي' : tab === 'notifications' ? 'التنبيهات' : tab === 'saved' ? 'المحفوظات' : 'اكتشف'}</h1></div><button className="icon-button refresh-button" title="تحديث" onClick={() => setRefreshKey((v) => v + 1)}>↻</button></div>
       {notice && <div className={`toast ${notice.type}`} role="status">{notice.text}<button onClick={() => setNotice(null)} aria-label="إغلاق">×</button></div>}
@@ -351,7 +348,7 @@ export default function App({ session, onSignOut, onDeleteAccount }) {
       {tab === 'notifications' && <NotificationsPanel viewer={session.user} notify={notify} />}
       {tab === 'profile' && profile && <ProfilePanel profile={profile} viewerId={viewerId} onSaved={refreshProfile} setTab={setTab} notify={notify} />}
       {tab === 'saved' && <section className="feed-list"><div className="panel empty-state"><h3>المنشورات المحفوظة</h3></div>{savedPosts.map((post) => <PostItem key={`saved-${post.id}`} post={post} viewerId={viewerId} onLike={toggleLike} onSave={toggleSave} onRepost={toggleRepost} onComment={setCommentsPost} onDelete={deletePost} onEdit={editPost} onReport={reportPost} onBlock={blockUser} notify={notify} />)}</section>}
-      {tab === 'settings' && <SettingsView notify={notify} />}
+      {tab === 'settings' && <SettingsView onSignOut={onSignOut} onDeleteAccount={onDeleteAccount} notify={notify} />}
     </main>
 
     <nav className="bottom-nav" aria-label="التنقل الرئيسي">
