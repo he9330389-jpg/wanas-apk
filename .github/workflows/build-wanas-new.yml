@@ -1,48 +1,87 @@
-name: Build WANAS New - Capacitor
+name: Build WANAS Android
 
 on:
   push:
-    branches: [ main ]
+    branches: [main, master]
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+      VITE_APP_URL: ${{ vars.VITE_APP_URL }}
+      KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
+          node-version: 22
+          cache: npm
+      - name: Verify required app configuration
+        run: |
+          test -n "$VITE_SUPABASE_URL" || { echo "Missing VITE_SUPABASE_URL secret"; exit 1; }
+          test -n "$VITE_SUPABASE_ANON_KEY" || { echo "Missing VITE_SUPABASE_ANON_KEY secret"; exit 1; }
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '21'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build Web
-        run: npm run build
-
-      - name: Setup Android platform
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - name: Install Android SDK 36
         run: |
-          npx cap add android || true
-          npx cap sync android
-
-      - name: Build APK
+          sdkmanager --licenses <<< "$(printf 'y\n%.0s' {1..100})" >/dev/null
+          sdkmanager "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+      - name: Disable Capacitor telemetry
+        run: npx cap telemetry off
+      - name: Generate a clean Capacitor 8 Android platform
         run: |
-          cd android
+          rm -rf android
+          npx cap add android
+      - name: Install checked-in Android icons and splash
+        run: cp -R assets/android-res/. android/app/src/main/res/
+      - name: Sync Capacitor
+        run: npx cap sync android
+      - name: Set Android version code
+        run: sed -i "s/versionCode [0-9]*/versionCode ${{ github.run_number }}/" android/app/build.gradle
+      - name: Build signed APK and AAB
+        if: env.KEYSTORE_BASE64 != ''
+        working-directory: android
+        run: |
+          test -n "$KEYSTORE_PASSWORD" && test -n "$KEY_ALIAS" && test -n "$KEY_PASSWORD" || { echo "All Android signing secrets are required together"; exit 1; }
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/wanas.jks"
           chmod +x gradlew
-          ./gradlew assembleDebug
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+          ./gradlew assembleRelease bundleRelease --stacktrace \
+            -Pandroid.injected.signing.store.file="$RUNNER_TEMP/wanas.jks" \
+            -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+      - name: Build debug APK when no signing key is configured
+        if: env.KEYSTORE_BASE64 == ''
+        working-directory: android
+        run: |
+          echo "::warning::This is a debug APK for testing, not a Play Store release."
+          chmod +x gradlew
+          ./gradlew assembleDebug --stacktrace
+      - name: Check APK output
+        run: |
+          APK=$(find android/app/build/outputs/apk -name "*.apk" | head -1)
+          test -n "$APK" || { echo "APK was not created"; exit 1; }
+          SIZE=$(stat -c%s "$APK")
+          echo "APK: $APK ($((SIZE/1024/1024)) MB)"
+      - uses: actions/upload-artifact@v4
         with:
-          name: wanas-apk-new
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: wanas-android
+          path: |
+            android/app/build/outputs/apk/**/*.apk
+            android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: error
+          retention-days: 30
