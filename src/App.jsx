@@ -23,19 +23,22 @@ function Avatar({ profile, size = 'md' }) {
     : <span className={`avatar avatar-${size} avatar-fallback`} aria-label={name}>{initials(name)}</span>
 }
 
-function AppHeader({ profile, onSignOut, onDeleteAccount }) {
+function AppHeader({ profile, onSignOut, onDeleteAccount, onNavigate, notify }) {
   const [open, setOpen] = useState(false)
   return <header className="app-header"><div className="header-inner">
-    <div className="brand-lockup"><div className="brand-mark">و</div><span>وَنَس</span></div>
-    <div className="header-actions">
-      <button className="icon-button" title="قائمة الحساب" onClick={() => setOpen((v) => !v)}><Avatar profile={profile} size="sm" /></button>
-      {open && <div className="account-menu">
+    <div className="header-right">
+      <button className="icon-button profile-trigger" onClick={() => setOpen((v) => !v)}><Avatar profile={profile} size="sm" /></button>
+      <button className="icon-button" title="تنبيهات" onClick={() => onNavigate('notifications')}>🔔</button>
+      <button className="icon-button" title="بحث" onClick={() => onNavigate('search')}>⌕</button>
+      <button className="quiet-pill" onClick={() => notify('وضع هادئ قريباً', 'info')}>🍃 هادئ</button>
+    </div>
+    <div className="brand-lockup"><span>WANAS</span><div className="brand-mark">و</div></div>
+    {open && <div className="account-menu">
         <strong>{profile?.display_name || profile?.username}</strong><span dir="ltr">@{profile?.username}</span>
         <button onClick={onSignOut}>تسجيل الخروج</button>
         <button className="danger-text" onClick={onDeleteAccount}>حذف الحساب نهائيًا</button>
       </div>}
-    </div>
-  </div></header>
+    </div></header>
 }
 
 function Composer({ profile, onCreated, notify }) {
@@ -71,13 +74,15 @@ function Composer({ profile, onCreated, notify }) {
     } finally { setBusy(false) }
   }
   return <form className="panel composer" onSubmit={submit}>
-    <div className="composer-top"><Avatar profile={profile} /><textarea aria-label="اكتب منشورًا" value={content} onChange={(e) => setContent(e.target.value)} placeholder="هتونسنا النهارده؟" maxLength={5000} rows={3} /></div>
+    <div className="composer-top"><Avatar profile={profile} /><textarea aria-label="اكتب منشورًا" value={content} onChange={(e) => setContent(e.target.value)} placeholder="هتونسنا النهارده؟ شاركنا اللي في بالك..." maxLength={5000} rows={3} /></div>
     {file && <div className="file-chip">الصورة: {file.name}<button type="button" onClick={() => { setFile(null); if (inputRef.current) inputRef.current.value = '' }} aria-label="إزالة الصورة">×</button></div>}
     <div className="composer-footer"><div className="composer-options">
-      <button type="button" className="subtle-button" onClick={() => inputRef.current?.click()}>＋ صورة</button>
+      <button type="button" className="subtle-button" onClick={() => inputRef.current?.click()}>🖼️ صورة</button>
+      <button type="button" className="subtle-button" onClick={() => notify('الفيديو قريباً', 'info')}>📹 فيديو</button>
+      <button type="button" className="subtle-button" onClick={() => notify('الصوت قريباً', 'info')}>🎙️ صوت</button>
+      <button type="button" className="subtle-button" onClick={() => notify('المزيد قريباً', 'info')}>＋ المزيد</button>
       <input ref={inputRef} className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-      <label className="privacy-select"><span>الخصوصية</span><select value={privacy} onChange={(e) => setPrivacy(e.target.value)}><option value="public">عام</option><option value="friends">الأصدقاء</option><option value="friends_of_friends">أصدقاء الأصدقاء</option><option value="public_except_friends">عام إلا الأصدقاء</option><option value="only_me">أنا فقط</option></select></label>
-    </div><button className="button primary compact" disabled={busy || (!content.trim() && !file)}>{busy ? 'جارٍ النشر…' : 'نشر'}</button></div>
+    </div><div className="composer-actions-right"><label className="privacy-select"><select value={privacy} onChange={(e) => setPrivacy(e.target.value)}><option value="public">عام</option><option value="friends">الأصدقاء</option><option value="friends_of_friends">أصدقاء الأصدقاء</option><option value="only_me">أنا فقط</option></select></label><button className="button primary compact" disabled={busy || (!content.trim() && !file)}>{busy ? 'جارٍ النشر…' : 'نشر'}</button></div></div>
   </form>
 }
 
@@ -376,13 +381,14 @@ export default function App({ session, onSignOut, onDeleteAccount }) {
   const visiblePosts = tab === 'saved' ? savedPosts : tab === 'profile' ? postsByMe : posts
 
   return <div className="app-shell" dir="rtl">
-    <AppHeader profile={profile} onSignOut={onSignOut} onDeleteAccount={onDeleteAccount} />
+    <AppHeader profile={profile} onSignOut={onSignOut} onDeleteAccount={onDeleteAccount} onNavigate={setTab} notify={notify} />
     <main className="main-content">
       <div className="page-heading"><div><p className="eyebrow">مساحة الونس</p><h1>{tab === 'home' ? 'آخر المنشورات' : tab === 'search' ? 'اكتشف' : tab === 'friends' ? 'مجتمعك' : tab === 'saved' ? 'المحفوظات' : tab === 'messages' ? 'الرسائل' : tab === 'notifications' ? 'التنبيهات' : 'ملفي الشخصي'}</h1></div><button className="icon-button refresh-button" title="تحديث" onClick={() => setRefreshKey((v) => v + 1)}>↻</button></div>
       {notice && <div className={`toast ${notice.type}`} role="status">{notice.text}<button onClick={() => setNotice(null)} aria-label="إغلاق">×</button></div>}
       {tab === 'home' && profile && <Composer profile={profile} onCreated={() => setRefreshKey((v) => v + 1)} notify={notify} />}
       {tab === 'search' && <SearchPanel viewer={session.user} notify={notify} />}
       {tab === 'friends' && <FriendsPanel viewer={session.user} notify={notify} />}
+      {tab === 'video' && <section className="panel section-panel"><h2>فيديو</h2><p className="muted">فيديوهات المجالس ستظهر هنا قريباً.</p></section>}
       {tab === 'messages' && <MessagesPanel viewer={session.user} notify={notify} />}
       {tab === 'notifications' && <NotificationsPanel viewer={session.user} notify={notify} />}
       {tab === 'profile' && profile && <ProfilePanel profile={profile} viewerId={viewerId} onSaved={refreshProfile} onNavigate={setTab} notify={notify} />}
@@ -391,7 +397,7 @@ export default function App({ session, onSignOut, onDeleteAccount }) {
       </section>}
     </main>
     <nav className="bottom-nav" aria-label="التنقل الرئيسي">
-      {[['home', 'الرئيسية', '⌂'], ['search', 'اكتشف', '⌕'], ['messages', 'الرسائل', '✉'], ['notifications', 'تنبيهات', '♧'], ['profile', 'حسابي', '◉']].map(([id, label, icon]) => <button key={id} className={tab === id ? 'nav-item selected' : 'nav-item'} onClick={() => setTab(id)}><span aria-hidden="true">{icon}</span><small>{label}</small></button>)}
+      {[['home', 'الرئيسية', '⌂'], ['video', 'فيديو', '▶'], ['friends', 'المجالس', '☊'], ['messages', 'الرسائل', '◍'], ['profile', 'الإعدادات', '⚙']].map(([id, label, icon]) => <button key={id} className={tab === id ? 'nav-item selected' : 'nav-item'} onClick={() => setTab(id)}><span aria-hidden="true">{icon}</span><small>{label}</small></button>)}
     </nav>
     {commentsPost && <CommentsDialog post={commentsPost} viewer={session.user} onClose={() => setCommentsPost(null)} notify={notify} />}
   </div>
