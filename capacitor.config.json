@@ -1,11 +1,7 @@
 {
   "appId": "app.wanas.social",
-  "appName": "WANAS - ونس",
+  "appName": "WANAS",
   "webDir": "dist",
-  "server": {
-    "androidScheme": "https",
-    "cleartext": false
-  },
   "plugins": {
     "StatusBar": {
       "style": "DARK",
