@@ -23,13 +23,15 @@ function Avatar({ profile, size = 'md' }) {
     : <span className={`avatar avatar-${size} avatar-fallback`} aria-label={name}>{initials(name)}</span>
 }
 
-function AppHeader({ profile, onSignOut, onDeleteAccount, notify }) {
+function AppHeader({ profile, onSignOut, onDeleteAccount, setTab, notify }) {
   const [open, setOpen] = useState(false)
   return <header className="app-header"><div className="header-inner">
-    <div className="brand-lockup"><div className="brand-mark">و</div><span>WANAS</span></div>
-    <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-      <button className="subtle-button" onClick={() => notify('وضع هادئ قريباً', 'info')} style={{ background: '#102a22', color: '#5eead4', padding: '6px 12px', borderRadius: '20px', fontSize: '12px' }}>🌿 هادئ</button>
-      <button className="icon-button" title="قائمة الحساب" onClick={() => setOpen((v) => !v)}><Avatar profile={profile} size="sm" /></button>
+    <div className="brand-lockup"><div className="brand-mark">g</div><span>WANAS</span></div>
+    <div className="header-actions" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <button className="subtle-button" onClick={() => notify('وضع هادئ قريباً', 'info')} style={{ background: '#102a22', color: '#5eead4', padding: '5px 10px', borderRadius: '20px', fontSize: '11px' }}>🌿 هادئ</button>
+      <button className="icon-button" title="بحث" onClick={() => setTab('search')}><span style={{ fontSize: '16px' }}>⌕</span></button>
+      <button className="icon-button" title="التنبيهات" onClick={() => setTab('notifications')}><span style={{ fontSize: '16px' }}>🔔</span></button>
+      <button className="icon-button" title="الملف الشخصي" onClick={() => setTab('profile')} style={{ padding: 0, overflow: 'hidden' }}><Avatar profile={profile} size="sm" /></button>
       {open && <div className="account-menu">
         <strong>{profile?.display_name || profile?.username}</strong><span dir="ltr">@{profile?.username}</span>
         <button onClick={onSignOut}>تسجيل الخروج</button>
@@ -74,7 +76,7 @@ function Composer({ profile, onCreated, notify }) {
   return <form className="panel composer" onSubmit={submit}>
     <div className="composer-top"><Avatar profile={profile} /><textarea aria-label="اكتب منشورًا" value={content} onChange={(e) => setContent(e.target.value)} placeholder="هتونسنا النهاردة؟ شاركنا اللي في بالك..." maxLength={5000} rows={3} /></div>
     {file && <div className="file-chip">الصورة: {file.name}<button type="button" onClick={() => { setFile(null); if (inputRef.current) inputRef.current.value = '' }} aria-label="إزالة الصورة">×</button></div>}
-    <div className="composer-footer"><div className="composer-options" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+    <div className="composer-footer"><div className="composer-options" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
       <button type="button" className="subtle-button" onClick={() => inputRef.current?.click()}>🖼️ صورة</button>
       <button type="button" className="subtle-button" onClick={() => notify('فيديو قريباً', 'info')}>📹 فيديو</button>
       <button type="button" className="subtle-button" onClick={() => notify('الصوت قريباً', 'info')}>🎙️ صوت</button>
@@ -161,7 +163,7 @@ function CommentsDialog({ post, viewer, onClose, notify }) {
   </section></div>
 }
 
-function SettingsPanel({ profile, viewerId, onSaved, notify }) {
+function ProfilePanel({ profile, viewerId, onSaved, setTab, notify }) {
   const [name, setName] = useState(profile.display_name || '')
   const [bio, setBio] = useState(profile.bio || '')
   const [busy, setBusy] = useState(false)
@@ -173,8 +175,30 @@ function SettingsPanel({ profile, viewerId, onSaved, notify }) {
     if (error) notify(shortError(error), 'error'); else { notify('تم تحديث الملف الشخصي.', 'success'); await onSaved() }
   }
   return <section className="panel section-panel profile-panel">
+    <div className="profile-shortcuts"><button className="button secondary compact" onClick={() => setTab('friends')}>الأصدقاء</button><button className="button secondary compact" onClick={() => setTab('saved')}>المحفوظات</button></div>
     <div className="profile-summary"><Avatar profile={profile} size="lg" /><div><h2>{profile.display_name || profile.username}</h2><p dir="ltr">@{profile.username}</p></div></div>
     <form className="form-stack" onSubmit={save}><label>اسم العرض<input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} /></label><label>نبذة عنك<textarea value={bio} onChange={(e) => setBio(e.target.value)} maxLength={300} rows={3} /></label><button className="button primary" disabled={busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ التعديلات'}</button></form>
+  </section>
+}
+
+function SettingsView({ notify }) {
+  return <section className="panel section-panel">
+    <h2>الإعدادات العامة</h2>
+    <div className="form-stack" style={{ gap: '15px', marginTop: '15px' }}>
+      <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span>اللغة</span>
+        <select style={{ background: '#191919', color: '#fff', padding: '6px 12px', borderRadius: '8px', border: '1px solid #333' }}>
+          <option>العربية (افتراضي)</option>
+        </select>
+      </label>
+      <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span>المظهر (الدارك مود / القاتم)</span>
+        <select style={{ background: '#191919', color: '#fff', padding: '6px 12px', borderRadius: '8px', border: '1px solid #333' }}>
+          <option>أسود قاتم (#000)</option>
+        </select>
+      </label>
+      <button className="button secondary" onClick={() => notify('تم حفظ إعدادات الخلفية والخصوصية', 'success')}>حفظ إعدادات التطبيق</button>
+    </div>
   </section>
 }
 
@@ -249,7 +273,7 @@ export default function App({ session, onSignOut, onDeleteAccount }) {
   }
   const toggleSave = async (post) => {
     const result = post.saved ? await supabase.from('saves').delete().eq('user_id', viewerId).eq('post_id', post.id) : await supabase.from('saves').insert({ user_id: viewerId, post_id: post.id })
-    if (result.error) notify(shortError(result.error), 'error')
+    if (result.error) notify(shortError(error), 'error')
     else { notify(post.saved ? 'أُزيل المنشور من المحفوظات.' : 'تم حفظ المنشور.', 'success'); setRefreshKey((v) => v + 1) }
   }
   const deletePost = async (post) => {
@@ -260,9 +284,9 @@ export default function App({ session, onSignOut, onDeleteAccount }) {
   const refreshProfile = async () => { await loadProfile(); setRefreshKey((v) => v + 1) }
 
   return <div className="app-shell" dir="rtl">
-    <AppHeader profile={profile} onSignOut={onSignOut} onDeleteAccount={onDeleteAccount} notify={notify} />
+    <AppHeader profile={profile} onSignOut={onSignOut} onDeleteAccount={onDeleteAccount} setTab={setTab} notify={notify} />
     <main className="main-content">
-      <div className="page-heading"><div><p className="eyebrow">مساحة الونس</p><h1>{tab === 'home' ? 'آخر المنشورات' : tab === 'video' ? 'فيديو' : tab === 'councils' ? 'المجالس' : tab === 'messages' ? 'الرسائل' : 'الإعدادات'}</h1></div><button className="icon-button refresh-button" title="تحديث" onClick={() => setRefreshKey((v) => v + 1)}>↻</button></div>
+      <div className="page-heading"><div><p className="eyebrow">مساحة الونس</p><h1>{tab === 'home' ? 'آخر المنشورات' : tab === 'video' ? 'فيديو' : tab === 'councils' ? 'المجالس' : tab === 'messages' ? 'الرسائل' : tab === 'settings' ? 'إعدادات التطبيق' : tab === 'profile' ? 'ملفي الشخصي' : 'الإشعارات'}</h1></div><button className="icon-button refresh-button" title="تحديث" onClick={() => setRefreshKey((v) => v + 1)}>↻</button></div>
       {notice && <div className={`toast ${notice.type}`} role="status">{notice.text}<button onClick={() => setNotice(null)} aria-label="إغلاق">×</button></div>}
       
       {tab === 'home' && profile && <>
@@ -275,7 +299,9 @@ export default function App({ session, onSignOut, onDeleteAccount }) {
       {tab === 'video' && <div className="panel empty-state"><h3>فيديو</h3><p className="muted">فيديوهات المجالس ستظهر هنا قريباً.</p></div>}
       {tab === 'councils' && <div className="panel empty-state"><h3>المجالس</h3><p className="muted">المجالس الصوتية قادمة قريباً.</p></div>}
       {tab === 'messages' && <MessagesPanel viewer={session.user} notify={notify} />}
-      {tab === 'settings' && profile && <SettingsPanel profile={profile} viewerId={viewerId} onSaved={refreshProfile} notify={notify} />}
+      {tab === 'notifications' && <NotificationsPanel viewer={session.user} notify={notify} />}
+      {tab === 'profile' && profile && <ProfilePanel profile={profile} viewerId={viewerId} onSaved={refreshProfile} setTab={setTab} notify={notify} />}
+      {tab === 'settings' && <SettingsView notify={notify} />}
     </main>
 
     <nav className="bottom-nav" aria-label="التنقل الرئيسي">
