@@ -82,7 +82,7 @@ function Composer({ profile, onCreated, notify }) {
       <button type="button" className="subtle-button" onClick={() => notify('الصوت قريباً', 'info')}>🎙️ صوت</button>
       <button type="button" className="subtle-button" onClick={() => notify('المزيد قريباً', 'info')}>+ المزيد</button>
       <input ref={inputRef} className="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={(e) => setFile(e.target.files?.[0] || null)} />
-      <label className="privacy-select"><select value={privacy} onChange={(e) => setPrivacy(e.target.value)}><option value="public">عام</option><option value="friends">الأصدقاء</option><option value="friends_of_friends">أصدقاء الأصدقاء</option><option value="only_me">أنا فقط</option></select></label>
+      <label className="privacy-select"><select value={privacy} onChange={(e) => setPrivacy(e.target.value)}><option value="public">🌐 عام</option><option value="friends">👥 الأصدقاء</option><option value="friends_of_friends">🔗 أصدقاء الأصدقاء</option><option value="only_me">🔒 أنا فقط</option></select></label>
     </div><button className="button primary compact" disabled={busy || (!content.trim() && !file)}>{busy ? '…' : 'نشر'}</button></div>
   </form>
 }
@@ -102,6 +102,14 @@ function PostItem({ post, viewerId, onLike, onSave, onRepost, onComment, onDelet
   const own = post.user_id === viewerId
   const profile = post.profile || {}
   const act = async (fn) => { if (busy) return; setBusy(true); try { await fn() } finally { setBusy(false) } }
+  
+  const copyLink = async () => {
+    const url = `${PUBLIC_APP_URL}/?post=${encodeURIComponent(post.id)}`
+    await navigator.clipboard.writeText(url)
+    notify('🔗 تم نسخ رابط المنشور بنجاح', 'success')
+    setShowMenu(false)
+  }
+
   const share = async () => {
     const url = `${PUBLIC_APP_URL}/?post=${encodeURIComponent(post.id)}`
     try {
@@ -109,12 +117,20 @@ function PostItem({ post, viewerId, onLike, onSave, onRepost, onComment, onDelet
       else { await navigator.clipboard.writeText(url); notify('تم نسخ رابط المنشور.', 'success') }
     } catch (error) { if (error.name !== 'AbortError') notify('تعذرت المشاركة من هذا الجهاز.', 'error') }
   }
+
   return <article id={`post-${post.id}`} className="panel post-item">
     <div className="post-head"><Avatar profile={profile} /><div className="post-author"><strong>{profile.display_name || profile.username || 'مستخدم'}</strong><span dir="ltr">@{profile.username || 'user'} · {timeAgo(post.created_at)}</span></div>
       <div className="post-menu-wrap"><button className="icon-button" title="خيارات المنشور" aria-expanded={showMenu} onClick={() => setShowMenu((v) => !v)}>⋯</button>
-        {showMenu && <div className="account-menu post-menu">{own
-          ? <><button onClick={() => { setShowMenu(false); onEdit(post) }}>تعديل نص المنشور</button><button className="danger-text" onClick={() => { setShowMenu(false); act(() => onDelete(post)) }}>حذف المنشور</button></>
-          : <><button onClick={() => { setShowMenu(false); onReport(post) }}>إبلاغ عن المنشور</button><button className="danger-text" onClick={() => { setShowMenu(false); onBlock(post) }}>حظر صاحب المنشور</button></>}
+        {showMenu && <div className="account-menu post-menu">
+          <button onClick={copyLink}>🔗 نسخ الرابط</button>
+          <button onClick={() => { setShowMenu(false); act(() => onSave(post)) }}>📖 {post.saved ? 'إزالة من المحفوظات' : 'الحفظ'}</button>
+          {own ? <>
+            <button onClick={() => { setShowMenu(false); onEdit(post) }}>✏️ تعديل نص المنشور</button>
+            <button className="danger-text" onClick={() => { setShowMenu(false); act(() => onDelete(post)) }}>🗑️ حذف المنشور</button>
+          </> : <>
+            <button onClick={() => { setShowMenu(false); onReport(post) }}>⚠️ الإبلاغ</button>
+            <button className="danger-text" onClick={() => { setShowMenu(false); onBlock(post) }}>🚫 حظر صاحب المنشور</button>
+          </>}
         </div>}
       </div>
     </div>
@@ -125,7 +141,7 @@ function PostItem({ post, viewerId, onLike, onSave, onRepost, onComment, onDelet
       <button className={post.liked ? 'action active' : 'action'} disabled={busy} onClick={() => act(() => onLike(post))}>{post.liked ? '♥ أعجبني' : '♡ إعجاب'}</button>
       <button className="action" onClick={() => onComment(post)}>تعليق</button>
       <button className={post.reposted ? 'action active' : 'action'} disabled={busy} onClick={() => act(() => onRepost(post))}>{post.reposted ? 'أُعيد نشره' : `إعادة نشر ${post.reposts_count || 0}`}</button>
-      <button className={post.saved ? 'action active' : 'action'} disabled={busy} onClick={() => act(() => onSave(post))}>{post.saved ? 'محفوظ' : 'حفظ'}</button>
+      <button className={post.saved ? 'action active' : 'action'} disabled={busy} onClick={() => act(() => onSave(post))}>{post.saved ? '📖 محفوظ' : '📖 حفظ'}</button>
       <button className="action" onClick={share}>مشاركة</button>
     </div>
   </article>
@@ -175,7 +191,7 @@ function ProfilePanel({ profile, viewerId, onSaved, setTab, notify }) {
     if (error) notify(shortError(error), 'error'); else { notify('تم تحديث الملف الشخصي.', 'success'); await onSaved() }
   }
   return <section className="panel section-panel profile-panel">
-    <div className="profile-shortcuts"><button className="button secondary compact" onClick={() => setTab('friends')}>الأصدقاء</button><button className="button secondary compact" onClick={() => setTab('saved')}>المحفوظات</button></div>
+    <div className="profile-shortcuts"><button className="button secondary compact" onClick={() => setTab('friends')}>👥 الأصدقاء</button><button className="button secondary compact" onClick={() => setTab('saved')}>📖 المحفوظات</button></div>
     <div className="profile-summary"><Avatar profile={profile} size="lg" /><div><h2>{profile.display_name || profile.username}</h2><p dir="ltr">@{profile.username}</p></div></div>
     <form className="form-stack" onSubmit={save}><label>اسم العرض<input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} /></label><label>نبذة عنك<textarea value={bio} onChange={(e) => setBio(e.target.value)} maxLength={300} rows={3} /></label><button className="button primary" disabled={busy}>{busy ? 'جارٍ الحفظ…' : 'حفظ التعديلات'}</button></form>
   </section>
@@ -183,21 +199,21 @@ function ProfilePanel({ profile, viewerId, onSaved, setTab, notify }) {
 
 function SettingsView({ notify }) {
   return <section className="panel section-panel">
-    <h2>الإعدادات العامة</h2>
+    <h2>⚙️ إعدادات التطبيق</h2>
     <div className="form-stack" style={{ gap: '15px', marginTop: '15px' }}>
       <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span>اللغة</span>
-        <select style={{ background: '#191919', color: '#fff', padding: '6px 12px', borderRadius: '8px', border: '1px solid #333' }}>
+        <select style={{ background: '#000', color: '#fff', padding: '6px 12px', borderRadius: '8px', border: '1px solid #333' }}>
           <option>العربية (افتراضي)</option>
         </select>
       </label>
       <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <span>المظهر (الدارك مود / القاتم)</span>
-        <select style={{ background: '#191919', color: '#fff', padding: '6px 12px', borderRadius: '8px', border: '1px solid #333' }}>
+        <span>مظهر التطبيق (أسود قاتم 100%)</span>
+        <select style={{ background: '#000', color: '#fff', padding: '6px 12px', borderRadius: '8px', border: '1px solid #333' }}>
           <option>أسود قاتم (#000)</option>
         </select>
       </label>
-      <button className="button secondary" onClick={() => notify('تم حفظ إعدادات الخلفية والخصوصية', 'success')}>حفظ إعدادات التطبيق</button>
+      <button className="button secondary" onClick={() => notify('تم الحفظ بنجاح', 'success')}>حفظ الإعدادات</button>
     </div>
   </section>
 }
@@ -247,13 +263,32 @@ export default function App({ session, onSignOut, onDeleteAccount }) {
     setLoading(false)
   }, [viewerId, notify])
 
+  const loadSaved = useCallback(async () => {
+    const { data, error } = await supabase.from('saves').select('post_id,posts(*)').eq('user_id', viewerId).order('created_at', { ascending: false }).limit(50)
+    if (error) { notify(shortError(error), 'error'); setSavedPosts([]); return }
+    const rows = (data || []).map((r) => r.posts).filter(Boolean)
+    const ids = [...new Set(rows.map((r) => r.user_id))]
+    const postIds = rows.map((r) => r.id)
+    const [peopleRes, likesRes, repostsRes] = await Promise.all([
+      ids.length ? supabase.from('profiles').select(PROFILE_FIELDS).in('id', ids) : Promise.resolve({ data: [] }),
+      postIds.length ? supabase.from('likes').select('post_id').eq('user_id', viewerId).in('post_id', postIds) : Promise.resolve({ data: [] }),
+      postIds.length ? supabase.from('reposts').select('post_id').eq('user_id', viewerId).in('post_id', postIds) : Promise.resolve({ data: [] }),
+    ])
+    const people = Object.fromEntries((peopleRes.data || []).map((p) => [p.id, p]))
+    const liked = new Set((likesRes.data || []).map((r) => r.post_id))
+    const reposted = new Set((repostsRes.data || []).map((r) => r.post_id))
+    setSavedPosts(rows.map((r) => ({ ...r, profile: people[r.user_id], saved: true, liked: liked.has(r.id), reposted: reposted.has(r.id) })))
+  }, [viewerId, notify])
+
   useEffect(() => { loadProfile() }, [loadProfile])
   useEffect(() => { loadFeed() }, [loadFeed, refreshKey])
+  useEffect(() => { if (tab === 'saved') loadSaved() }, [tab, loadSaved, refreshKey])
 
   const toggleLike = async (post) => {
     const next = !post.liked
     const update = (items) => items.map((p) => p.id === post.id ? { ...p, liked: next, likes_count: Math.max(0, (p.likes_count || 0) + (next ? 1 : -1)) } : p)
     setPosts(update)
+    setSavedPosts(update)
     const result = next ? await supabase.from('likes').insert({ user_id: viewerId, post_id: post.id }) : await supabase.from('likes').delete().eq('user_id', viewerId).eq('post_id', post.id)
     if (result.error) { notify(shortError(result.error), 'error'); setRefreshKey((v) => v + 1) }
   }
@@ -261,6 +296,7 @@ export default function App({ session, onSignOut, onDeleteAccount }) {
     const next = !post.reposted
     const update = (items) => items.map((p) => p.id === post.id ? { ...p, reposted: next, reposts_count: Math.max(0, (p.reposts_count || 0) + (next ? 1 : -1)) } : p)
     setPosts(update)
+    setSavedPosts(update)
     const result = next ? await supabase.from('reposts').insert({ user_id: viewerId, post_id: post.id }) : await supabase.from('reposts').delete().eq('user_id', viewerId).eq('post_id', post.id)
     if (result.error) { notify(shortError(result.error), 'error'); setRefreshKey((v) => v + 1) }
     else notify(next ? 'تمت إعادة النشر.' : 'تم إلغاء إعادة النشر.', 'success')
@@ -281,18 +317,31 @@ export default function App({ session, onSignOut, onDeleteAccount }) {
     const { error } = await supabase.from('posts').delete().eq('id', post.id).eq('user_id', viewerId)
     if (error) notify(shortError(error), 'error'); else { notify('تم حذف المنشور.', 'success'); setRefreshKey((v) => v + 1) }
   }
+  const reportPost = async (post) => {
+    const reason = window.prompt('اكتب سبب الإبلاغ:')
+    if (!reason?.trim()) return
+    const { error } = await supabase.from('reports').insert({ reporter_id: viewerId, reported_post_id: post.id, reported_user_id: post.user_id, reason: reason.trim().slice(0, 500), type: 'post' })
+    if (error) notify(shortError(error), 'error'); else notify('تم إرسال البلاغ للمراجعة.', 'success')
+  }
+  const blockUser = async (post) => {
+    if (post.user_id === viewerId || !window.confirm('حظر هذا المستخدم؟')) return
+    const { error } = await supabase.from('blocks').insert({ blocker_id: viewerId, blocked_id: post.user_id })
+    if (error) notify(shortError(error), 'error'); else { notify('تم حظر المستخدم.', 'success'); setRefreshKey((v) => v + 1) }
+  }
   const refreshProfile = async () => { await loadProfile(); setRefreshKey((v) => v + 1) }
+
+  const visiblePosts = tab === 'saved' ? savedPosts : posts
 
   return <div className="app-shell" dir="rtl">
     <AppHeader profile={profile} onSignOut={onSignOut} onDeleteAccount={onDeleteAccount} setTab={setTab} notify={notify} />
     <main className="main-content">
-      <div className="page-heading"><div><p className="eyebrow">مساحة الونس</p><h1>{tab === 'home' ? 'آخر المنشورات' : tab === 'video' ? 'فيديو' : tab === 'councils' ? 'المجالس' : tab === 'messages' ? 'الرسائل' : tab === 'settings' ? 'إعدادات التطبيق' : tab === 'profile' ? 'ملفي الشخصي' : 'الإشعارات'}</h1></div><button className="icon-button refresh-button" title="تحديث" onClick={() => setRefreshKey((v) => v + 1)}>↻</button></div>
+      <div className="page-heading"><div><p className="eyebrow">مساحة الونس</p><h1>{tab === 'home' ? 'آخر المنشورات' : tab === 'video' ? 'فيديو' : tab === 'councils' ? 'المجالس' : tab === 'messages' ? 'الرسائل' : tab === 'settings' ? 'إعدادات التطبيق' : tab === 'profile' ? 'ملفي الشخصي' : tab === 'notifications' ? 'التنبيهات' : tab === 'saved' ? 'المحفوظات' : 'اكتشف'}</h1></div><button className="icon-button refresh-button" title="تحديث" onClick={() => setRefreshKey((v) => v + 1)}>↻</button></div>
       {notice && <div className={`toast ${notice.type}`} role="status">{notice.text}<button onClick={() => setNotice(null)} aria-label="إغلاق">×</button></div>}
       
       {tab === 'home' && profile && <>
         <Composer profile={profile} onCreated={() => setRefreshKey((v) => v + 1)} notify={notify} />
         <section className="feed-list" aria-live="polite">
-          {loading ? <div className="panel empty-state">جارٍ تحميل المنشورات…</div> : !posts.length ? <div className="panel empty-state">لا توجد منشورات بعد. كن أول من يشارك.</div> : posts.map((post) => <PostItem key={`home-${post.id}`} post={post} viewerId={viewerId} onLike={toggleLike} onSave={toggleSave} onRepost={toggleRepost} onComment={setCommentsPost} onDelete={deletePost} onEdit={editPost} notify={notify} />)}
+          {loading ? <div className="panel empty-state">جارٍ تحميل المنشورات…</div> : !posts.length ? <div className="panel empty-state">لا توجد منشورات بعد. كن أول من يشارك.</div> : posts.map((post) => <PostItem key={`home-${post.id}`} post={post} viewerId={viewerId} onLike={toggleLike} onSave={toggleSave} onRepost={toggleRepost} onComment={setCommentsPost} onDelete={deletePost} onEdit={editPost} onReport={reportPost} onBlock={blockUser} notify={notify} />)}
         </section>
       </>}
 
@@ -301,6 +350,7 @@ export default function App({ session, onSignOut, onDeleteAccount }) {
       {tab === 'messages' && <MessagesPanel viewer={session.user} notify={notify} />}
       {tab === 'notifications' && <NotificationsPanel viewer={session.user} notify={notify} />}
       {tab === 'profile' && profile && <ProfilePanel profile={profile} viewerId={viewerId} onSaved={refreshProfile} setTab={setTab} notify={notify} />}
+      {tab === 'saved' && <section className="feed-list"><div className="panel empty-state"><h3>المنشورات المحفوظة</h3></div>{savedPosts.map((post) => <PostItem key={`saved-${post.id}`} post={post} viewerId={viewerId} onLike={toggleLike} onSave={toggleSave} onRepost={toggleRepost} onComment={setCommentsPost} onDelete={deletePost} onEdit={editPost} onReport={reportPost} onBlock={blockUser} notify={notify} />)}</section>}
       {tab === 'settings' && <SettingsView notify={notify} />}
     </main>
 
