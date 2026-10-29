@@ -2,11 +2,8 @@ import React, { useCallback, useEffect, useState, useRef } from 'react'
 import { supabase } from './utils/supabase.js'
 
 const PROFILE_FIELDS = 'id,username,display_name,bio,avatar_url,cover_url,is_verified,quiet_mode,created_at'
-const POST_FIELDS = 'id,user_id,content,media_urls,media_type,privacy,comment_setting,created_at,likes_count,comments_count,saves_count,reposts_count'
-
-// Helpers
+const POST_FIELDS = 'id,user_id,content,media_urls,media_type,privacy,created_at,likes_count,comments_count,saves_count,reposts_count'
 const shortError = (e) => e?.message || 'حدث خطأ'
-const initials = (n='') => (n.trim().split(/\s+/).slice(0,2).map(p=>p[0]).join('')||'و').toUpperCase()
 const timeAgo = (d) => {
   const s = Math.max(0, Math.floor((Date.now() - new Date(d).getTime())/1000))
   if(s<60) return 'الآن'
@@ -15,445 +12,17 @@ const timeAgo = (d) => {
   return `منذ ${Math.floor(s/86400)} ي`
 }
 
-function Avatar({ profile, size='md' }){
-  const name = profile?.display_name || profile?.username || 'ونس'
-  const cls = `avatar avatar-${size}`
-  if(profile?.avatar_url) return <img className={cls} src={profile.avatar_url} alt={name} style={{width:size==='sm'?32:size==='md'?40:56,height:size==='sm'?32:size==='md'?40:56,borderRadius:'50%',objectFit:'cover'}}/>
-  return <span className={`${cls} avatar-fallback`} style={{display:'inline-flex',alignItems:'center',justifyContent:'center',width:size==='sm'?32:size==='md'?40:56,height:size==='sm'?32:size==='md'?40:56,borderRadius:'50%',background:'#1f1f1f',color:'#fff',fontWeight:'bold'}}>{initials(name)}</span>
-}
+// Icons as SVG - outline like screenshot
+const IconHome = ({active}) => <svg width="26" height="26" viewBox="0 0 24 24" fill={active?"white":"none"} stroke="white" strokeWidth={active?0:1.8} strokeLinejoin="round"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1h-5v-5H9v5H4a1 1 0 01-1-1V9.5z"/></svg>
+const IconVideo = ({active}) => <svg width="26" height="26" viewBox="0 0 24 24" fill={active?"white":"none"} stroke="white" strokeWidth="1.8"><rect x="3" y="5" width="15" height="14" rx="3"/><path d="M18 9l4-2v10l-4-2V9z" fill={active?"white":"none"} stroke="white"/></svg>
+const IconMajalis = ({active}) => <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8"><path d="M3 12a9 9 0 1018 0"/><path d="M6 12a3 3 0 00-3 3v3a3 3 0 003 3h1a1 1 0 001-1v-4a1 1 0 00-1-1H6z"/><path d="M18 12a3 3 0 013 3v3a3 3 0 01-3 3h-1a1 1 0 01-1-1v-4a1 1 0 011-1h1z"/></svg>
+const IconMessages = ({active}) => <svg width="26" height="26" viewBox="0 0 24 24" fill={active?"white":"none"} stroke="white" strokeWidth="1.8"><path d="M12 21a9 9 0 01-6.5-2.7L3 21l1.5-3.6A9 9 0 1112 21z" strokeLinejoin="round"/></svg>
+const IconSettings = ({active}) => <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg>
+const IconSearch = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8"><circle cx="11" cy="11" r="6"/><path d="M21 21l-3.5-3.5"/></svg>
+const IconBell = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8"><path d="M6 9a6 6 0 0112 0c0 7 4 9 4 9H2s4-2 4-9"/><path d="M9 21a3 3 0 006 0"/></svg>
+const IconUser = () => <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0116 0"/></svg>
 
-// HEADER
-function AppHeader({ profile, quietMode, onToggleQuiet, setTab, notifCount, msgCount }){
-  return (
-    <header className="app-header" style={{position:'sticky',top:0,zIndex:20,background:'#0a0a0a',borderBottom:'1px solid #1a1a1a',padding:'10px 14px'}}>
-      <div className="header-inner" style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-        <div className="brand-lockup" onClick={()=>setTab('home')} style={{cursor:'pointer',display:'flex',alignItems:'center',gap:'8px',fontWeight:'900',fontSize:'22px'}}>
-          <div className="brand-mark" style={{width:'32px',height:'32px',background:'white',color:'black',borderRadius:'8px',display:'flex',alignItems:'center',justifyContent:'center'}}>و</div><span>WANAS</span>
-        </div>
-        <div className="header-actions" style={{display:'flex',alignItems:'center',gap:'10px'}}>
-          <button onClick={onToggleQuiet} style={{background: quietMode?'#065f46':'#102a22',color:'#5eead4',padding:'6px 12px',borderRadius:'20px',fontSize:'12px',border:'none',cursor:'pointer'}}>🌿 هادئ</button>
-          <button onClick={()=>setTab('search')} style={{background:'none',border:'none',color:'#fff',fontSize:'18px',cursor:'pointer'}}>⌕</button>
-          <button onClick={()=>setTab('messages')} style={{background:'none',border:'none',color:'#fff',fontSize:'18px',cursor:'pointer',position:'relative'}}>✉{msgCount>0 && <span style={{position:'absolute',top:'-4px',right:'-4px',background:'#10b981',color:'white',fontSize:'9px',width:'16px',height:'16px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center'}}>{msgCount}</span>}</button>
-          <button onClick={()=>setTab('notifications')} style={{background:'none',border:'none',color:'#fff',fontSize:'18px',cursor:'pointer',position:'relative'}}>🔔{notifCount>0 && <span style={{position:'absolute',top:'-4px',right:'-4px',background:'#ef4444',color:'white',fontSize:'9px',width:'16px',height:'16px',borderRadius:'50%',display:'flex',alignItems:'center',justifyContent:'center'}}>{notifCount}</span>}</button>
-          <button onClick={()=>setTab('profile')} style={{background:'none',border:'none',padding:0,cursor:'pointer'}}><Avatar profile={profile} size="sm"/></button>
-        </div>
-      </div>
-    </header>
-  )
-}
-
-// STORIES RAIL
-function StoriesRail({ viewerId, onNotify }){
-  const [stories,setStories]=useState([])
-  const [myStoryFile,setMyStoryFile]=useState(null)
-  useEffect(()=>{
-    supabase.from('stories').select('id,user_id,media_url,expires_at,created_at').gt('expires_at', new Date().toISOString()).order('created_at',{ascending:false}).limit(20).then(async ({data})=>{
-      const ids = [...new Set((data||[]).map(s=>s.user_id))]
-      const { data: profs } = ids.length ? await supabase.from('profiles').select(PROFILE_FIELDS).in('id',ids) : {data:[]}
-      const map = Object.fromEntries((profs||[]).map(p=>[p.id,p]))
-      setStories((data||[]).map(s=>({...s, profile: map[s.user_id]})))
-    })
-  },[])
-  const uploadStory = async (e)=>{
-    const file = e.target.files?.[0]; if(!file) return
-    try{
-      const ext = file.name.split('.').pop()||'jpg'
-      const path = `${viewerId}/stories/${Date.now()}.${ext}`
-      const { error } = await supabase.storage.from('posts').upload(path, file)
-      if(error) throw error
-      const { error: dbErr } = await supabase.from('stories').insert({ user_id: viewerId, media_url: path })
-      if(dbErr) throw dbErr
-      onNotify('تم نشر القصة','success')
-      setTimeout(()=>window.location.reload(),500)
-    }catch(err){ onNotify(shortError(err),'error') }
-  }
-  return (
-    <div style={{display:'flex',gap:'12px',overflowX:'auto',padding:'12px 4px'}}>
-      <label style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'4px',cursor:'pointer',minWidth:'60px'}}>
-        <div style={{width:'56px',height:'56px',borderRadius:'50%',background:'#1a1a1a',border:'2px dashed #333',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'24px'}}>+</div>
-        <small style={{fontSize:'10px'}}>قصتي</small>
-        <input type="file" accept="image/*,video/*" onChange={uploadStory} style={{display:'none'}}/>
-      </label>
-      {stories.map(s=>(
-        <div key={s.id} style={{display:'flex',flexDirection:'column',alignItems:'center',gap:'4px',minWidth:'60px'}}>
-          <img src={s.profile?.avatar_url || ''} alt="" style={{width:'56px',height:'56px',borderRadius:'50%',border:'2px solid #10b981',objectFit:'cover',background:'#222'}}/>
-          <small style={{fontSize:'10px',maxWidth:'60px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{s.profile?.username||'مستخدم'}</small>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// COMPOSER
-function Composer({ profile, onCreated, notify }){
-  const [content,setContent] = useState('')
-  const [privacy,setPrivacy]=useState('public')
-  const [file,setFile] = useState(null)
-  const [busy,setBusy] = useState(false)
-  const inputRef = useRef(null)
-
-  const submit = async (e)=>{
-    e.preventDefault()
-    if(!content.trim() && !file) return
-    setBusy(true)
-    let path = null
-    try{
-      if(file){
-        const ext = (file.name.split('.').pop()||'jpg').toLowerCase()
-        const uuid = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString()
-        path = `${profile.id}/${uuid}.${ext}`
-        const { error } = await supabase.storage.from('posts').upload(path, file)
-        if(error) throw error
-      }
-      const { error } = await supabase.from('posts').insert({ user_id: profile.id, content: content.trim() || ' ', media_type: file?'image':'none', media_urls: path?[path]:[], privacy })
-      if(error) throw error
-      setContent(''); setFile(null); if(inputRef.current) inputRef.current.value=''
-      notify('تم النشر','success'); onCreated()
-    }catch(err){ if(path) await supabase.storage.from('posts').remove([path]); notify(shortError(err),'error') } finally{ setBusy(false) }
-  }
-
-  return (
-    <form className="panel composer" onSubmit={submit} style={{background:'#111',border:'1px solid #222',borderRadius:'16px',padding:'12px'}}>
-      <div className="composer-top" style={{display:'flex',gap:'10px'}}><Avatar profile={profile}/><textarea value={content} onChange={e=>setContent(e.target.value)} placeholder="هتونسنا النهارده؟ شاركنا اللي في بالك..." maxLength={5000} rows={3} style={{flex:1,background:'#0a0a0a',border:'1px solid #222',borderRadius:'12px',padding:'10px',color:'white',resize:'none'}}/></div>
-      {file && <div className="file-chip" style={{marginTop:'8px',background:'#0a0a0a',padding:'6px 10px',borderRadius:'8px',display:'flex',justifyContent:'space-between'}}><span>🖼️ {file.name}</span><button type="button" onClick={()=>{setFile(null); if(inputRef.current) inputRef.current.value=''}}>×</button></div>}
-      <div className="composer-footer" style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'10px'}}>
-        <div className="composer-options" style={{display:'flex',gap:'8px',flexWrap:'wrap'}}>
-          <button type="button" className="subtle-button" onClick={()=>inputRef.current?.click()} style={{background:'#1a1a1a',border:'none',color:'#fff',padding:'6px 10px',borderRadius:'20px',cursor:'pointer'}}>🖼️ صورة</button>
-          <select value={privacy} onChange={e=>setPrivacy(e.target.value)} style={{background:'#1a1a1a',border:'none',color:'#fff',padding:'6px 10px',borderRadius:'20px'}}>
-            <option value="public">🌍 عام</option>
-            <option value="friends">👥 الأصدقاء</option>
-            <option value="only_me">🔒 أنا فقط</option>
-          </select>
-          <input ref={inputRef} className="visually-hidden" type="file" accept="image/*" onChange={e=>setFile(e.target.files?.[0]||null)} style={{display:'none'}}/>
-        </div>
-        <button className="button primary compact" disabled={busy || (!content.trim() && !file)} style={{background:'white',color:'black',border:'none',padding:'8px 18px',borderRadius:'20px',fontWeight:'bold',cursor:'pointer'}}>{busy?'جارٍ النشر…':'نشر'}</button>
-      </div>
-    </form>
-  )
-}
-
-// POST ITEM
-function PostItem({ post, viewerId, onLike, onSave, onRepost, onDelete, onEdit, onOpenComments, onShare, onReport, onBlock }){
-  const [mediaSrc,setMediaSrc]=useState('')
-  const [menu,setMenu]=useState(false)
-  const path = post.media_urls?.[0]
-  useEffect(()=>{
-    if(!path) return
-    if(/^https?:\/\//i.test(path)) setMediaSrc(path)
-    else supabase.storage.from('posts').createSignedUrl(path,3600).then(({data})=> setMediaSrc(data?.signedUrl||''))
-  },[path])
-
-  return (
-    <article className="panel post-item" style={{background:'#111',border:'1px solid #1a1a1a',borderRadius:'16px',padding:'12px',position:'relative'}}>
-      <div className="post-head" style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-        <div style={{display:'flex',gap:'11px',alignItems:'center',flex:1}}>
-          <Avatar profile={post.profile}/><div className="post-author" style={{display:'flex',flexDirection:'column'}}><strong style={{fontSize:'14px'}}>{post.profile?.display_name||post.profile?.username||'مستخدم'} {post.profile?.is_verified && '✓'}</strong><span style={{fontSize:'11px',color:'#888'}}>@{post.profile?.username} · {timeAgo(post.created_at)} · {post.privacy==='public'?'🌍':post.privacy==='friends'?'👥':'🔒'}</span></div>
-        </div>
-        <button onClick={()=>setMenu(!menu)} style={{background:'none',border:'none',color:'#888',cursor:'pointer',fontSize:'18px'}}>⋯</button>
-        {menu && (
-          <div style={{position:'absolute',top:'40px',left:'12px',background:'#1a1a1a',border:'1px solid #333',borderRadius:'12px',padding:'8px',zIndex:10,minWidth:'160px',display:'flex',flexDirection:'column',gap:'4px'}}>
-            {post.user_id===viewerId ? <>
-              <button onClick={()=>{setMenu(false); onEdit(post)}} style={{background:'none',border:'none',color:'#fff',textAlign:'right',padding:'6px',cursor:'pointer'}}>✏️ تعديل</button>
-              <button onClick={()=>{setMenu(false); onDelete(post)}} style={{background:'none',border:'none',color:'#ef4444',textAlign:'right',padding:'6px',cursor:'pointer'}}>🗑️ حذف</button>
-            </> : <>
-              <button onClick={()=>{setMenu(false); onReport(post)}} style={{background:'none',border:'none',color:'#fff',textAlign:'right',padding:'6px',cursor:'pointer'}}>🚩 إبلاغ</button>
-              <button onClick={()=>{setMenu(false); onBlock(post)}} style={{background:'none',border:'none',color:'#ef4444',textAlign:'right',padding:'6px',cursor:'pointer'}}>🚫 حظر المستخدم</button>
-            </>}
-          </div>
-        )}
-      </div>
-      {post.content?.trim() && <p className="post-content" style={{margin:'10px 0',whiteSpace:'pre-wrap'}}>{post.content}</p>}
-      {mediaSrc && <img className="post-media" src={mediaSrc} alt="مرفق" style={{width:'100%',borderRadius:'12px',marginTop:'8px',maxHeight:'400px',objectFit:'cover'}}/>}
-      <div className="post-actions" style={{display:'flex',gap:'8px',marginTop:'12px',borderTop:'1px solid #1a1a1a',paddingTop:'10px'}}>
-        <button onClick={()=>onLike(post)} style={{flex:1,background: post.liked?'#1f0f0f':'#0a0a0a',border:'1px solid #222',color: post.liked ? '#ef4444' : '#9ca3af',cursor:'pointer',padding:'8px',borderRadius:'20px',fontSize:'13px'}}>{post.liked?'♥':'♡'} {post.likes_count||0}</button>
-        <button onClick={()=>onOpenComments(post)} style={{flex:1,background:'#0a0a0a',border:'1px solid #222',color:'#9ca3af',cursor:'pointer',padding:'8px',borderRadius:'20px',fontSize:'13px'}}>💬 {post.comments_count||0}</button>
-        <button onClick={()=>onSave(post)} style={{flex:1,background: post.saved?'#0f1f0f':'#0a0a0a',border:'1px solid #222',color: post.saved?'#10b981':'#9ca3af',cursor:'pointer',padding:'8px',borderRadius:'20px',fontSize:'13px'}}>🔖 {post.saves_count||0}</button>
-        <button onClick={()=>onRepost(post)} style={{flex:1,background: post.reposted?'#0f1f0f':'#0a0a0a',border:'1px solid #222',color: post.reposted?'#10b981':'#9ca3af',cursor:'pointer',padding:'8px',borderRadius:'20px',fontSize:'13px'}}>↻ {post.reposts_count||0}</button>
-        <button onClick={()=>onShare(post)} style={{flex:1,background:'#0a0a0a',border:'1px solid #222',color:'#9ca3af',cursor:'pointer',padding:'8px',borderRadius:'20px',fontSize:'13px'}}>🔗</button>
-      </div>
-    </article>
-  )
-}
-
-function CommentsSheet({ post, viewerProfile, onClose, notify, onCommentAdded }){
-  const [comments,setComments]=useState([])
-  const [text,setText]=useState('')
-  const [loading,setLoading]=useState(true)
-
-  const load = useCallback(async()=>{
-    setLoading(true)
-    const { data } = await supabase.from('comments').select('id,content,created_at,user_id').eq('post_id',post.id).order('created_at',{ascending:true})
-    const ids = [...new Set((data||[]).map(c=>c.user_id))]
-    const { data: profs } = ids.length ? await supabase.from('profiles').select(PROFILE_FIELDS).in('id',ids) : {data:[]}
-    const map = Object.fromEntries((profs||[]).map(p=>[p.id,p]))
-    setComments((data||[]).map(c=>({...c, profile: map[c.user_id]})))
-    setLoading(false)
-  },[post.id])
-
-  useEffect(()=>{ load() },[load])
-
-  const send = async (e)=>{
-    e.preventDefault()
-    if(!text.trim()) return
-    try{
-      const { error } = await supabase.from('comments').insert({ user_id: viewerProfile.id, post_id: post.id, content: text.trim() })
-      if(error) throw error
-      setText(''); load(); onCommentAdded()
-    }catch(err){ notify(shortError(err),'error') }
-  }
-
-  return (
-    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',zIndex:100,display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
-      <div className="panel" style={{width:'100%',maxWidth:'600px',maxHeight:'80vh',borderRadius:'20px 20px 0 0',display:'flex',flexDirection:'column',background:'#111'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'16px',borderBottom:'1px solid #222'}}>
-          <strong>التعليقات ({post.comments_count||0})</strong>
-          <button onClick={onClose} style={{background:'none',border:'none',fontSize:'20px',cursor:'pointer',color:'#fff'}}>×</button>
-        </div>
-        <div style={{flex:1,overflowY:'auto',padding:'16px',display:'flex',flexDirection:'column',gap:'12px'}}>
-          {loading ? <div className="muted">جارٍ التحميل...</div> :
-           !comments.length ? <div className="muted">لا توجد تعليقات بعد</div> :
-           comments.map(c=>(
-            <div key={c.id} style={{display:'flex',gap:'10px'}}>
-              <Avatar profile={c.profile} size="sm"/>
-              <div style={{background:'#1a1a1a',padding:'8px 12px',borderRadius:'12px',flex:1}}>
-                <strong style={{fontSize:'13px'}}>{c.profile?.display_name||c.profile?.username}</strong>
-                <p style={{margin:'4px 0 0',fontSize:'14px'}}>{c.content}</p>
-                <small style={{color:'#666',fontSize:'11px'}}>{timeAgo(c.created_at)}</small>
-              </div>
-            </div>
-           ))}
-        </div>
-        <form onSubmit={send} style={{padding:'12px',display:'flex',gap:'8px',borderTop:'1px solid #222'}}>
-          <input value={text} onChange={e=>setText(e.target.value)} placeholder="اكتب تعليقاً..." style={{flex:1,background:'#0a0a0a',border:'1px solid #333',borderRadius:'20px',padding:'10px 14px',color:'white'}}/>
-          <button type="submit" disabled={!text.trim()} style={{background:'white',color:'black',border:'none',padding:'8px 16px',borderRadius:'20px',cursor:'pointer'}}>إرسال</button>
-        </form>
-      </div>
-    </div>
-  )
-}
-
-// SEARCH TAB
-function SearchTab({ notify }){
-  const [q,setQ]=useState('')
-  const [users,setUsers]=useState([])
-  const [busy,setBusy]=useState(false)
-  const doSearch = async (e)=>{
-    e?.preventDefault()
-    if(!q.trim()) return
-    setBusy(true)
-    const { data } = await supabase.from('profiles').select(PROFILE_FIELDS).or(`username.ilike.%${q}%,display_name.ilike.%${q}%`).limit(20)
-    setUsers(data||[]); setBusy(false)
-  }
-  const sendFriendReq = async (toUser)=>{
-    try{
-      const { data: { user } } = await supabase.auth.getUser()
-      const { error } = await supabase.from('friend_requests').insert({ from_user: user.id, to_user: toUser })
-      if(error) throw error
-      notify('تم إرسال طلب الصداقة','success')
-    }catch(err){ notify(shortError(err),'error') }
-  }
-  return (
-    <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
-      <form onSubmit={doSearch} style={{display:'flex',gap:'8px'}}>
-        <input value={q} onChange={e=>setQ(e.target.value)} placeholder="ابحث عن اسم أو @username" style={{flex:1,background:'#111',border:'1px solid #333',borderRadius:'20px',padding:'12px 14px',color:'white'}}/>
-        <button type="submit" style={{background:'white',color:'black',border:'none',padding:'10px 18px',borderRadius:'20px',cursor:'pointer'}}>{busy?'...':'بحث'}</button>
-      </form>
-      <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
-        {users.map(u=>(
-          <div key={u.id} style={{background:'#111',border:'1px solid #1a1a1a',borderRadius:'12px',padding:'12px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-            <div style={{display:'flex',gap:'10px',alignItems:'center'}}><Avatar profile={u}/><div><strong>{u.display_name}</strong><br/><small style={{color:'#888'}}>@{u.username}</small></div></div>
-            <button onClick={()=>sendFriendReq(u.id)} style={{background:'#1a1a1a',border:'1px solid #333',color:'white',padding:'6px 12px',borderRadius:'20px',cursor:'pointer'}}>إضافة</button>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-// FRIENDS TAB
-function FriendsTab({ viewerId, notify }){
-  const [reqs,setReqs]=useState([])
-  const [friends,setFriends]=useState([])
-  const load = async ()=>{
-    const { data: r } = await supabase.from('friend_requests').select('id,from_user,to_user,status,created_at').or(`from_user.eq.${viewerId},to_user.eq.${viewerId}`).eq('status','pending').order('created_at',{ascending:false})
-    const allIds = [...new Set((r||[]).flatMap(x=>[x.from_user,x.to_user]))]
-    const { data: profs } = allIds.length ? await supabase.from('profiles').select(PROFILE_FIELDS).in('id',allIds) : {data:[]}
-    const map = Object.fromEntries((profs||[]).map(p=>[p.id,p]))
-    setReqs((r||[]).map(x=>({...x, from_profile: map[x.from_user], to_profile: map[x.to_user]})))
-    const { data: f } = await supabase.from('friends').select('id,user_a,user_b').or(`user_a.eq.${viewerId},user_b.eq.${viewerId}`)
-    const fIds = (f||[]).map(x=> x.user_a===viewerId ? x.user_b : x.user_a)
-    const { data: fProfs } = fIds.length ? await supabase.from('profiles').select(PROFILE_FIELDS).in('id',fIds) : {data:[]}
-    setFriends(fProfs||[])
-  }
-  useEffect(()=>{ load() },[])
-  const accept = async (req)=>{
-    const other = req.from_user===viewerId ? req.to_user : req.from_user
-    const a = viewerId < other ? viewerId : other
-    const b = viewerId < other ? other : viewerId
-    await supabase.from('friends').insert({ user_a: a, user_b: b })
-    await supabase.from('friend_requests').update({ status:'accepted' }).eq('id', req.id)
-    notify('تم قبول الصداقة','success'); load()
-  }
-  const decline = async (id)=>{ await supabase.from('friend_requests').update({ status:'declined' }).eq('id',id); load() }
-  return (
-    <div style={{display:'flex',flexDirection:'column',gap:'16px'}}>
-      <div><h3>طلبات الصداقة ({reqs.length})</h3>{!reqs.length ? <p style={{color:'#888'}}>لا توجد طلبات</p> : reqs.map(r=>(
-        <div key={r.id} style={{background:'#111',border:'1px solid #1a1a1a',borderRadius:'12px',padding:'12px',display:'flex',justifyContent:'space-between',marginBottom:'8px'}}>
-          <div style={{display:'flex',gap:'10px',alignItems:'center'}}><Avatar profile={r.from_user===viewerId?r.to_profile:r.from_profile}/><span>{r.from_user===viewerId?`أرسلت إلى ${r.to_profile?.display_name}`:`${r.from_profile?.display_name} يريد صداقتك`}</span></div>
-          {r.to_user===viewerId && <div style={{display:'flex',gap:'6px'}}><button onClick={()=>accept(r)} style={{background:'#10b981',border:'none',padding:'6px 12px',borderRadius:'20px',cursor:'pointer'}}>قبول</button><button onClick={()=>decline(r.id)} style={{background:'#222',border:'none',padding:'6px 12px',borderRadius:'20px',cursor:'pointer',color:'white'}}>رفض</button></div>}
-        </div>
-      ))}</div>
-      <div><h3>الأصدقاء ({friends.length})</h3><div style={{display:'flex',flexWrap:'wrap',gap:'12px'}}>{friends.map(f=><div key={f.id} style={{textAlign:'center'}}><Avatar profile={f}/><br/><small>{f.display_name}</small></div>)}</div></div>
-    </div>
-  )
-}
-
-// MESSAGES TAB
-function MessagesTab({ viewerId, notify }){
-  const [convs,setConvs]=useState([])
-  const [active,setActive]=useState(null)
-  const [msgs,setMsgs]=useState([])
-  const [text,setText]=useState('')
-  const loadConvs = async ()=>{
-    const { data } = await supabase.from('messages').select('id,from_user,to_user,content,created_at').or(`from_user.eq.${viewerId},to_user.eq.${viewerId}`).order('created_at',{ascending:false}).limit(100)
-    const otherIds = [...new Set((data||[]).map(m=> m.from_user===viewerId?m.to_user:m.from_user))]
-    const { data: profs } = otherIds.length ? await supabase.from('profiles').select(PROFILE_FIELDS).in('id',otherIds) : {data:[]}
-    const map = Object.fromEntries((profs||[]).map(p=>[p.id,p]))
-    const grouped = {}
-    ;(data||[]).forEach(m=>{
-      const other = m.from_user===viewerId?m.to_user:m.from_user
-      if(!grouped[other]) grouped[other]= { other, profile: map[other], last: m, count:0 }
-    })
-    setConvs(Object.values(grouped))
-  }
-  const loadMsgs = async (otherId)=>{
-    setActive(otherId)
-    const { data } = await supabase.from('messages').select('id,from_user,to_user,content,created_at').or(`and(from_user.eq.${viewerId},to_user.eq.${otherId}),and(from_user.eq.${otherId},to_user.eq.${viewerId})`).order('created_at',{ascending:true}).limit(100)
-    setMsgs(data||[])
-  }
-  const send = async (e)=>{
-    e.preventDefault(); if(!text.trim() || !active) return
-    const { error } = await supabase.from('messages').insert({ from_user: viewerId, to_user: active, content: text.trim() })
-    if(error) return notify(shortError(error),'error')
-    setText(''); loadMsgs(active)
-  }
-  useEffect(()=>{ loadConvs(); const id=setInterval(loadConvs,5000); return ()=>clearInterval(id) },[])
-  useEffect(()=>{ if(active){ const id=setInterval(()=>loadMsgs(active),3000); return ()=>clearInterval(id) } },[active])
-
-  if(active){
-    const otherProfile = convs.find(c=>c.other===active)?.profile
-    return (
-      <div style={{display:'flex',flexDirection:'column',height:'70vh'}}>
-        <div style={{display:'flex',alignItems:'center',gap:'10px',padding:'12px',borderBottom:'1px solid #222'}}><button onClick={()=>setActive(null)} style={{background:'none',border:'none',color:'white',fontSize:'20px',cursor:'pointer'}}>‹</button><Avatar profile={otherProfile} size="sm"/><strong>{otherProfile?.display_name||'محادثة'}</strong></div>
-        <div style={{flex:1,overflowY:'auto',padding:'12px',display:'flex',flexDirection:'column',gap:'8px'}}>
-          {msgs.map(m=><div key={m.id} style={{alignSelf: m.from_user===viewerId?'flex-end':'flex-start',background: m.from_user===viewerId?'white':'#1a1a1a',color: m.from_user===viewerId?'black':'white',padding:'8px 12px',borderRadius:'16px',maxWidth:'70%'}}>{m.content}</div>)}
-        </div>
-        <form onSubmit={send} style={{display:'flex',gap:'8px',padding:'12px',borderTop:'1px solid #222'}}><input value={text} onChange={e=>setText(e.target.value)} placeholder="اكتب رسالة..." style={{flex:1,background:'#0a0a0a',border:'1px solid #333',borderRadius:'20px',padding:'10px 14px',color:'white'}}/><button type="submit" style={{background:'white',color:'black',border:'none',padding:'8px 16px',borderRadius:'20px',cursor:'pointer'}}>إرسال</button></form>
-      </div>
-    )
-  }
-  return (
-    <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
-      {!convs.length ? <div style={{background:'#111',borderRadius:'12px',padding:'20px',textAlign:'center',color:'#888'}}>لا توجد محادثات. ابحث عن أصدقاء وابدأ محادثة!</div> :
-       convs.map(c=>(
-        <div key={c.other} onClick={()=>loadMsgs(c.other)} style={{background:'#111',border:'1px solid #1a1a1a',borderRadius:'12px',padding:'12px',display:'flex',gap:'10px',alignItems:'center',cursor:'pointer'}}>
-          <Avatar profile={c.profile}/><div style={{flex:1}}><strong>{c.profile?.display_name||'مستخدم'}</strong><br/><small style={{color:'#888'}}>{c.last.content.slice(0,40)}</small></div><small style={{color:'#666'}}>{timeAgo(c.last.created_at)}</small>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// NOTIFICATIONS
-function NotificationsTab({ viewerId }){
-  const [notifs,setNotifs]=useState([])
-  useEffect(()=>{
-    supabase.from('notifications').select('id,type,created_at,from_user,post_id').eq('user_id',viewerId).order('created_at',{ascending:false}).limit(50).then(async ({data})=>{
-      const ids = [...new Set((data||[]).map(n=>n.from_user).filter(Boolean))]
-      const { data: profs } = ids.length ? await supabase.from('profiles').select(PROFILE_FIELDS).in('id',ids) : {data:[]}
-      const map = Object.fromEntries((profs||[]).map(p=>[p.id,p]))
-      setNotifs((data||[]).map(n=>({...n, from_profile: map[n.from_user]})))
-      if((data||[]).length) supabase.from('notifications').update({is_read:true}).eq('user_id',viewerId)
-    })
-  },[viewerId])
-  return (
-    <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
-      {!notifs.length ? <div style={{background:'#111',borderRadius:'12px',padding:'20px',textAlign:'center',color:'#888'}}>لا توجد إشعارات</div> : notifs.map(n=>(
-        <div key={n.id} style={{background:'#111',border:'1px solid #1a1a1a',borderRadius:'12px',padding:'12px',display:'flex',gap:'10px',alignItems:'center'}}>
-          <Avatar profile={n.from_profile} size="sm"/>
-          <div style={{flex:1}}><p style={{margin:0,fontSize:'14px'}}><strong>{n.from_profile?.display_name||'مستخدم'}</strong> {n.type==='like'?'أعجب بمنشورك': n.type==='comment'?'علق على منشورك': n.type==='friend_request'?'أرسل طلب صداقة':'تفاعل معك'}</p><small style={{color:'#666'}}>{timeAgo(n.created_at)}</small></div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// PROFILE
-function ProfileTab({ profile, myPosts, onUpdate, onSignOut, notify }){
-  const [edit,setEdit]=useState(false)
-  const [displayName,setDisplayName]=useState(profile.display_name||'')
-  const [bio,setBio]=useState(profile.bio||'')
-  const [avatarFile,setAvatarFile]=useState(null)
-  const save = async ()=>{
-    try{
-      let avatar_url = profile.avatar_url
-      if(avatarFile){
-        const ext = avatarFile.name.split('.').pop()||'jpg'
-        const path = `${profile.id}/avatar.${ext}`
-        const { error } = await supabase.storage.from('posts').upload(path, avatarFile, { upsert:true })
-        if(error) throw error
-        const { data } = supabase.storage.from('posts').getPublicUrl(path)
-        avatar_url = data.publicUrl
-      }
-      const { error } = await supabase.from('profiles').update({ display_name: displayName, bio, avatar_url }).eq('id', profile.id)
-      if(error) throw error
-      notify('تم تحديث الملف','success'); setEdit(false); onUpdate()
-    }catch(err){ notify(shortError(err),'error') }
-  }
-  const deleteAccount = async ()=>{
-    if(!confirm('هل أنت متأكد؟ سيتم حذف حسابك نهائياً وجميع بياناتك!')) return
-    const { error } = await supabase.rpc('delete_my_account')
-    if(error){ notify(shortError(error),'error'); return }
-    await supabase.auth.signOut()
-  }
-  return (
-    <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
-      <div style={{background:'#111',border:'1px solid #1a1a1a',borderRadius:'16px',padding:'20px',textAlign:'center'}}>
-        <div style={{display:'flex',justifyContent:'center',marginBottom:'12px',position:'relative'}}>
-          <Avatar profile={profile} size="md"/>
-          {edit && <label style={{position:'absolute',bottom:'-6px',background:'#fff',color:'#000',fontSize:'10px',padding:'2px 6px',borderRadius:'10px',cursor:'pointer'}}>تغيير<input type="file" accept="image/*" onChange={e=>setAvatarFile(e.target.files?.[0])} style={{display:'none'}}/></label>}
-        </div>
-        {!edit ? <>
-          <h2 style={{margin:'0 0 4px'}}>{profile.display_name} {profile.is_verified && '✓'}</h2>
-          <p style={{margin:0,color:'#888'}}>@{profile.username}</p>
-          {profile.bio && <p style={{marginTop:'10px'}}>{profile.bio}</p>}
-          <button onClick={()=>setEdit(true)} style={{marginTop:'12px',background:'#1a1a1a',border:'1px solid #333',color:'white',padding:'8px 16px',borderRadius:'20px',cursor:'pointer'}}>تعديل الملف</button>
-        </> : <>
-          <input value={displayName} onChange={e=>setDisplayName(e.target.value)} placeholder="الاسم الظاهر" style={{width:'100%',background:'#0a0a0a',border:'1px solid #333',borderRadius:'10px',padding:'10px',color:'white',marginBottom:'8px'}}/>
-          <textarea value={bio} onChange={e=>setBio(e.target.value)} placeholder="النبذة" rows={3} style={{width:'100%',background:'#0a0a0a',border:'1px solid #333',borderRadius:'10px',padding:'10px',color:'white',marginBottom:'8px'}}/>
-          <div style={{display:'flex',gap:'8px',justifyContent:'center'}}><button onClick={save} style={{background:'white',color:'black',border:'none',padding:'8px 16px',borderRadius:'20px',cursor:'pointer'}}>حفظ</button><button onClick={()=>setEdit(false)} style={{background:'#222',border:'none',color:'white',padding:'8px 16px',borderRadius:'20px',cursor:'pointer'}}>إلغاء</button></div>
-        </>}
-        <div style={{display:'flex',gap:'20px',justifyContent:'center',marginTop:'16px'}}>
-          <div><strong>{myPosts.length}</strong><br/><small>منشور</small></div>
-          <div><strong>0</strong><br/><small>متابع</small></div>
-          <div><strong>0</strong><br/><small>يتابع</small></div>
-        </div>
-      </div>
-      <div style={{background:'#111',borderRadius:'12px',padding:'12px'}}>
-        <h3 style={{margin:'0 0 10px'}}>منشوراتي</h3>
-        {!myPosts.length ? <p style={{color:'#888'}}>لم تنشر شيئاً بعد</p> : <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>{myPosts.map(p=><div key={p.id} style={{padding:'10px',background:'#0a0a0a',borderRadius:'8px',border:'1px solid #1a1a1a'}}>{p.content.slice(0,100)} - {timeAgo(p.created_at)}</div>)}</div>}
-      </div>
-      <button onClick={onSignOut} style={{background:'#1a1a1a',color:'#fff',border:'1px solid #333',padding:'12px',borderRadius:'12px',cursor:'pointer'}}>تسجيل خروج</button>
-      <button onClick={deleteAccount} style={{background:'#1a1a1a',color:'#ef4444',border:'1px solid #331111',padding:'12px',borderRadius:'12px',cursor:'pointer'}}>حذف الحساب نهائياً</button>
-      <div style={{background:'#0a0a0a',border:'1px dashed #333',borderRadius:'12px',padding:'12px',textAlign:'center',fontSize:'11px',color:'#666',marginTop:'12px'}}>
-        تم بناء برمجة هذا البرنامج بواسطة ABD.ALLAH ZOHAIR OMARA<br/>WANAS v1.0 - مساحة الونس
-      </div>
-    </div>
-  )
-}
-
-// MAIN APP
-export default function App({ session, onSignOut }){
+export default function App({ session, onSignOut }) {
   const viewerId = session.user.id
   const [profile,setProfile]=useState(null)
   const [posts,setPosts]=useState([])
@@ -461,189 +30,336 @@ export default function App({ session, onSignOut }){
   const [quietMode,setQuietMode]=useState(false)
   const [notice,setNotice]=useState(null)
   const [loading,setLoading]=useState(true)
-  const [activePost,setActivePost]=useState(null)
+  const [content,setContent]=useState('')
+  const [file,setFile]=useState(null)
+  const [busy,setBusy]=useState(false)
+  const [showFullComposer,setShowFullComposer]=useState(false)
+  const [privacy,setPrivacy]=useState('public')
+  const [activePostComments,setActivePostComments]=useState(null)
+  const [comments,setComments]=useState([])
+  const [commentText,setCommentText]=useState('')
   const [notifCount,setNotifCount]=useState(0)
-  const [msgCount,setMsgCount]=useState(0)
-  const [editingPost,setEditingPost]=useState(null)
-  const [editText,setEditText]=useState('')
+  const fileRef = useRef(null)
 
   const notify = useCallback((text,type='info')=>{
-    setNotice({text,type}); setTimeout(()=>setNotice(null),4000)
+    setNotice({text,type}); setTimeout(()=>setNotice(null),3000)
   },[])
 
   const loadProfile = useCallback(async()=>{
     const { data } = await supabase.from('profiles').select(PROFILE_FIELDS).eq('id',viewerId).maybeSingle()
     if(!data){
-      const emailName = session.user.email?.split('@')[0]||'user'
-      const { data: inserted } = await supabase.from('profiles').insert({ id: viewerId, username: emailName, display_name: emailName }).select().single()
-      setProfile(inserted || {id:viewerId, username: emailName, display_name: emailName})
-    } else {
-      setProfile(data); setQuietMode(!!data.quiet_mode)
-    }
+      const name = session.user.email?.split('@')[0]||'user'
+      const { data: ins } = await supabase.from('profiles').insert({id:viewerId, username:name, display_name:name}).select().single()
+      setProfile(ins || {id:viewerId, username:name, display_name:name})
+    } else { setProfile(data); setQuietMode(!!data.quiet_mode) }
   },[viewerId, session])
 
   const loadFeed = useCallback(async()=>{
     setLoading(true)
-    let query = supabase.from('posts').select(POST_FIELDS).order('created_at',{ascending:false}).limit(50)
-    if(quietMode){
-      // في الوضع الهادئ - بس منشورات الأصدقاء
-      const { data: fr } = await supabase.from('friends').select('user_a,user_b').or(`user_a.eq.${viewerId},user_b.eq.${viewerId}`)
-      const friendIds = (fr||[]).map(f=> f.user_a===viewerId?f.user_b:f.user_a)
-      if(friendIds.length) query = query.in('user_id', [...friendIds, viewerId])
-      else query = query.eq('user_id', viewerId)
-    }
-    const { data, error } = await query
-    if(error){ setPosts([]); setLoading(false); return }
-    const ids = [...new Set((data||[]).map(r=>r.user_id))]
-    const { data: profs } = ids.length ? await supabase.from('profiles').select(PROFILE_FIELDS).in('id',ids) : {data:[]}
-    const map = Object.fromEntries((profs||[]).map(p=>[p.id,p]))
-    const { data: likes } = await supabase.from('likes').select('post_id').eq('user_id',viewerId)
-    const likedSet = new Set((likes||[]).map(l=>l.post_id))
-    const { data: saves } = await supabase.from('saves').select('post_id').eq('user_id',viewerId)
-    const savedSet = new Set((saves||[]).map(s=>s.post_id))
-    const { data: reposts } = await supabase.from('reposts').select('post_id').eq('user_id',viewerId)
-    const repostedSet = new Set((reposts||[]).map(r=>r.post_id))
-    const { data: blocks } = await supabase.from('blocks').select('blocked_id').eq('blocker_id',viewerId)
-    const blockedSet = new Set((blocks||[]).map(b=>b.blocked_id))
-    setPosts((data||[]).filter(r=>!blockedSet.has(r.user_id)).map(r=>({...r, profile: map[r.user_id], liked: likedSet.has(r.id), saved: savedSet.has(r.id), reposted: repostedSet.has(r.id)}))); setLoading(false)
+    try{
+      let q = supabase.from('posts').select(POST_FIELDS).order('created_at',{ascending:false}).limit(40)
+      if(quietMode){
+        const { data: fr } = await supabase.from('friends').select('user_a,user_b').or(`user_a.eq.${viewerId},user_b.eq.${viewerId}`)
+        const ids = (fr||[]).map(f=> f.user_a===viewerId?f.user_b:f.user_a)
+        if(ids.length) q = q.in('user_id', [...ids, viewerId])
+        else q = q.eq('user_id', viewerId)
+      }
+      const { data } = await q
+      const uIds = [...new Set((data||[]).map(p=>p.user_id))]
+      const { data: profs } = uIds.length ? await supabase.from('profiles').select(PROFILE_FIELDS).in('id',uIds) : {data:[]}
+      const map = Object.fromEntries((profs||[]).map(p=>[p.id,p]))
+      const { data: likes } = await supabase.from('likes').select('post_id').eq('user_id',viewerId)
+      const liked = new Set((likes||[]).map(l=>l.post_id))
+      setPosts((data||[]).map(p=>({...p, profile: map[p.user_id], liked: liked.has(p.id)})))
+      const { count } = await supabase.from('notifications').select('id',{count:'exact',head:true}).eq('user_id',viewerId).eq('is_read',false)
+      setNotifCount(count||0)
+    } catch(e){}
+    setLoading(false)
   },[viewerId, quietMode])
 
-  const loadCounts = useCallback(async()=>{
-    const { count: n } = await supabase.from('notifications').select('id',{count:'exact',head:true}).eq('user_id',viewerId).eq('is_read',false)
-    setNotifCount(n||0)
-    const { count: m } = await supabase.from('messages').select('id',{count:'exact',head:true}).eq('to_user',viewerId).eq('is_read',false)
-    setMsgCount(m||0)
-  },[viewerId])
+  useEffect(()=>{loadProfile()},[loadProfile])
+  useEffect(()=>{loadFeed()},[loadFeed])
 
-  useEffect(()=>{ loadProfile() },[loadProfile])
-  useEffect(()=>{ loadFeed(); loadCounts(); const i=setInterval(loadCounts,10000); return ()=>clearInterval(i) },[loadFeed, loadCounts])
+  const submitPost = async (e)=>{
+    e?.preventDefault()
+    if(!content.trim() && !file) return
+    setBusy(true)
+    let path = null
+    try{
+      if(file){
+        const ext = (file.name.split('.').pop()||'jpg').replace(/[^a-z0-9]/gi,'')||'jpg'
+        const uuid = crypto.randomUUID ? crypto.randomUUID() : Date.now().toString()
+        path = `${viewerId}/${uuid}.${ext}`
+        const { error } = await supabase.storage.from('posts').upload(path, file)
+        if(error) throw error
+      }
+      const { error } = await supabase.from('posts').insert({ user_id: viewerId, content: content.trim() || ' ', media_type: file?'image':'none', media_urls: path?[path]:[], privacy })
+      if(error) throw error
+      setContent(''); setFile(null); setShowFullComposer(false); if(fileRef.current) fileRef.current.value=''
+      notify('تم النشر','success'); loadFeed()
+    } catch(err){ if(path) await supabase.storage.from('posts').remove([path]); notify(err.message,'error') } finally{ setBusy(false) }
+  }
 
   const toggleLike = async (post)=>{
     const next = !post.liked
     setPosts(p=>p.map(x=> x.id===post.id ? {...x, liked:next, likes_count: Math.max(0,(x.likes_count||0)+(next?1:-1))} : x))
-    try{
-      if(next) await supabase.from('likes').insert({user_id:viewerId, post_id:post.id})
-      else await supabase.from('likes').delete().eq('user_id',viewerId).eq('post_id',post.id)
-    }catch(e){ setPosts(p=>p.map(x=> x.id===post.id ? {...x, liked:!next, likes_count: Math.max(0,(x.likes_count||0)+(!next?1:-1))} : x)); notify(shortError(e),'error') }
-  }
-
-  const toggleSave = async (post)=>{
-    const next = !post.saved
-    setPosts(p=>p.map(x=> x.id===post.id ? {...x, saved:next, saves_count: Math.max(0,(x.saves_count||0)+(next?1:-1))} : x))
-    try{
-      if(next) await supabase.from('saves').insert({user_id:viewerId, post_id:post.id})
-      else await supabase.from('saves').delete().eq('user_id',viewerId).eq('post_id',post.id)
-      notify(next?'تم الحفظ':'تم إلغاء الحفظ','success')
-    }catch(e){ notify(shortError(e),'error') }
-  }
-
-  const toggleRepost = async (post)=>{
-    const next = !post.reposted
-    setPosts(p=>p.map(x=> x.id===post.id ? {...x, reposted:next, reposts_count: Math.max(0,(x.reposts_count||0)+(next?1:-1))} : x))
-    try{
-      if(next) await supabase.from('reposts').insert({user_id:viewerId, post_id:post.id})
-      else await supabase.from('reposts').delete().eq('user_id',viewerId).eq('post_id',post.id)
-      notify(next?'تمت إعادة النشر':'تم إلغاء إعادة النشر','success')
-    }catch(e){ notify(shortError(e),'error') }
-  }
-  
-  const deletePost = async (post)=>{
-    if(!confirm('حذف المنشور؟')) return
-    const { error } = await supabase.from('posts').delete().eq('id',post.id).eq('user_id',viewerId)
-    if(error) return notify(shortError(error),'error')
-    setPosts(p=>p.filter(x=>x.id!==post.id)); notify('تم الحذف','success')
-  }
-
-  const startEdit = (post)=>{ setEditingPost(post); setEditText(post.content) }
-  const saveEdit = async ()=>{
-    if(!editingPost) return
-    const { error } = await supabase.from('posts').update({ content: editText }).eq('id', editingPost.id).eq('user_id', viewerId)
-    if(error) return notify(shortError(error),'error')
-    setPosts(p=>p.map(x=> x.id===editingPost.id ? {...x, content: editText} : x))
-    setEditingPost(null); notify('تم التعديل','success')
-  }
-
-  const reportPost = async (post)=>{
-    const reason = prompt('سبب الإبلاغ؟'); if(!reason) return
-    await supabase.from('reports').insert({ reporter_id: viewerId, reported_post_id: post.id, reported_user_id: post.user_id, reason, type:'post' })
-    notify('تم إرسال البلاغ، شكراً','success')
-  }
-
-  const blockUser = async (post)=>{
-    if(!confirm(`حظر @${post.profile?.username}؟ لن ترى منشوراته بعد الآن`)) return
-    await supabase.from('blocks').insert({ blocker_id: viewerId, blocked_id: post.user_id })
-    setPosts(p=>p.filter(x=>x.user_id!==post.user_id)); notify('تم الحظر','success')
-  }
-
-  const sharePost = async (post)=>{
-    const url = `${window.location.origin}/post/${post.id}`
-    if(navigator.share){ try{ await navigator.share({title:'WANAS', text: post.content, url}); } catch{} }
-    else if(navigator.clipboard){ await navigator.clipboard.writeText(url); notify('تم نسخ رابط المنشور','success') }
+    if(next) await supabase.from('likes').insert({user_id:viewerId, post_id:post.id})
+    else await supabase.from('likes').delete().eq('user_id',viewerId).eq('post_id',post.id)
   }
 
   const toggleQuiet = async ()=>{
     const next = !quietMode
     setQuietMode(next)
-    if(profile) await supabase.from('profiles').update({ quiet_mode: next }).eq('id', viewerId)
-    notify(next?'تم تفعيل الوضع الهادئ - بس منشورات الأصدقاء':'تم إيقاف الوضع الهادئ','info')
+    if(profile) await supabase.from('profiles').update({quiet_mode: next}).eq('id',viewerId)
+    notify(next?'الوضع الهادئ: أصدقائك فقط':'الوضع الهادئ متوقف','info')
+  }
+
+  const openComments = async (post)=>{
+    setActivePostComments(post)
+    const { data } = await supabase.from('comments').select('id,content,created_at,user_id').eq('post_id',post.id).order('created_at',{ascending:true})
+    const ids = [...new Set((data||[]).map(c=>c.user_id))]
+    const { data: profs } = ids.length ? await supabase.from('profiles').select(PROFILE_FIELDS).in('id',ids) : {data:[]}
+    const map = Object.fromEntries((profs||[]).map(p=>[p.id,p]))
+    setComments((data||[]).map(c=>({...c, profile: map[c.user_id]})))
+  }
+  const sendComment = async (e)=>{
+    e.preventDefault()
+    if(!commentText.trim() || !activePostComments) return
+    await supabase.from('comments').insert({user_id:viewerId, post_id:activePostComments.id, content:commentText.trim()})
+    setCommentText(''); openComments(activePostComments); loadFeed()
   }
 
   return (
-    <div className="app-shell" dir="rtl" style={{background:'#000',color:'#fff',minHeight:'100vh',fontFamily:'Cairo, sans-serif',paddingBottom:'80px'}}>
-      <AppHeader profile={profile} quietMode={quietMode} onToggleQuiet={toggleQuiet} setTab={setTab} notifCount={notifCount} msgCount={msgCount}/>
-      <main className="main-content" style={{maxWidth:'600px',margin:'0 auto',padding:'12px'}}>
-        {notice && <div style={{background: notice.type==='error' ? '#7f1d1d' : '#065f46', color:'white', padding:'10px 14px', borderRadius:'10px', marginBottom:'12px', display:'flex', justifyContent:'space-between',position:'sticky',top:'60px',zIndex:10}}><span>{notice.text}</span><button onClick={()=>setNotice(null)} style={{background:'none',border:'none',color:'white',cursor:'pointer'}}>×</button></div>}
-        
-        {tab==='home' && <>
-          {profile && <StoriesRail viewerId={viewerId} onNotify={notify}/>}
-          {profile && <Composer profile={profile} onCreated={loadFeed} notify={notify}/>}
-          <section className="feed-list" style={{display:'flex',flexDirection:'column',gap:'12px',marginTop:'12px'}}>
-            {loading ? <div style={{background:'#111',borderRadius:'12px',padding:'20px',textAlign:'center'}}>جارٍ التحميل…</div> : !posts.length ? <div style={{background:'#111',borderRadius:'12px',padding:'20px',textAlign:'center',color:'#888'}}>لا توجد منشورات بعد. كن أول من يشارك!<br/><br/><small>💡 فعل الوضع الهادئ بيعرض بس منشورات أصدقائك</small></div> : posts.map(p=> <PostItem key={p.id} post={p} viewerId={viewerId} onLike={toggleLike} onSave={toggleSave} onRepost={toggleRepost} onDelete={deletePost} onEdit={startEdit} onOpenComments={setActivePost} onShare={sharePost} onReport={reportPost} onBlock={blockUser}/>)}
-          </section>
-        </>}
+    <div dir="rtl" style={{minHeight:'100dvh',background:'#000',color:'#fff',fontFamily:'Cairo, system-ui, sans-serif',paddingBottom:'86px'}}>
+      {/* TOP HEADER - زي الصورة بالظبط */}
+      <header style={{position:'sticky',top:0,zIndex:30,background:'rgba(0,0,0,0.96)',backdropFilter:'blur(20px)',borderBottom:'1px solid #151515',padding:'10px 14px',paddingTop:'calc(10px + env(safe-area-inset-top,0px))'}}>
+        <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',maxWidth:'720px',margin:'0 auto',height:'44px'}}>
+          {/* Right side: WANAS + hady + chat icon */}
+          <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
+            {/* Chat bubble green pill */}
+            <div style={{width:'44px',height:'44px',borderRadius:'14px',background:'#16241f',border:'1px solid #1e3a2f',display:'grid',placeItems:'center'}}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6ee7b7" strokeWidth="1.8"><path d="M12 21a9 9 0 01-6.5-2.7L3 21l1.5-3.6A9 9 0 1112 21z"/></svg>
+            </div>
+            <span style={{fontWeight:'800',fontSize:'22px',letterSpacing:'0.5px'}}>WANAS</span>
+            <button onClick={toggleQuiet} style={{display:'flex',alignItems:'center',gap:'6px',background: quietMode ? '#0f2e26' : '#16241f',color:'#7ee0b9',border:`1px solid ${quietMode?'#10b981':'#1e3a2f'}`,padding:'8px 16px',borderRadius:'20px',fontSize:'14px',fontWeight:'600',cursor:'pointer'}}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7ee0b9" strokeWidth="1.8"><path d="M11 20A7 7 0 0112 4a10 10 0 016 3"/><path d="M11 20a7 7 0 002-14"/><path d="M11 20V4"/></svg>
+              هادئ {quietMode && '•'}
+            </button>
+          </div>
+          {/* Left side: profile, bell, search */}
+          <div style={{display:'flex',alignItems:'center',gap:'14px'}}>
+            <button onClick={()=>setTab('profile')} style={{background:'none',border:'none',cursor:'pointer'}}><IconUser/></button>
+            <button onClick={()=>setTab('notifications')} style={{background:'none',border:'none',cursor:'pointer',position:'relative'}}><IconBell/>{notifCount>0 && <span style={{position:'absolute',top:'-4px',right:'-4px',background:'#ef4444',color:'white',fontSize:'10px',minWidth:'16px',height:'16px',borderRadius:'50%',display:'grid',placeItems:'center'}}>{notifCount}</span>}</button>
+            <button onClick={()=>setTab('search')} style={{background:'none',border:'none',cursor:'pointer'}}><IconSearch/></button>
+            <div style={{width:'32px',height:'32px',borderRadius:'50%',background:'#1a1a1a',border:'1px solid #333',display:'grid',placeItems:'center',fontSize:'12px',fontWeight:'700'}}>{(profile?.display_name?.[0]||'A')+ (profile?.display_name?.[1]||'Z')}</div>
+          </div>
+        </div>
+      </header>
 
-        {tab==='search' && <SearchTab notify={notify}/>}
-        {tab==='friends' && <FriendsTab viewerId={viewerId} notify={notify}/>}
-        {tab==='messages' && <MessagesTab viewerId={viewerId} notify={notify}/>}
-        {tab==='notifications' && <NotificationsTab viewerId={viewerId}/>}
-        {tab==='profile' && profile && <ProfileTab profile={profile} myPosts={posts.filter(p=>p.user_id===viewerId)} onUpdate={loadProfile} onSignOut={onSignOut} notify={notify}/>}
-        {tab==='video' && <div style={{background:'#111',borderRadius:'12px',padding:'40px 20px',textAlign:'center',color:'#888'}}><div style={{fontSize:'48px',marginBottom:'12px'}}>▶️</div><h3>فيديو</h3><p>مقاطع الفيديو القصيرة - قريباً</p><p style={{fontSize:'12px',marginTop:'20px'}}>هنا هتقدر ترفع فيديو كمنشور وده موجود في قاعدة البيانات كـ media_type video</p></div>}
-        {tab==='councils' && <div style={{background:'#111',borderRadius:'12px',padding:'40px 20px',textAlign:'center',color:'#888'}}><div style={{fontSize:'48px',marginBottom:'12px'}}>🎧</div><h3>المجالس</h3><p>غرف صوتية جماعية - قريباً</p><p style={{fontSize:'12px',marginTop:'20px'}}>هتكون زي Clubhouse - غرف صوتية مباشرة</p></div>}
-        {tab==='settings' && <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
-          <div style={{background:'#111',borderRadius:'12px',padding:'16px'}}><h3>الإعدادات</h3>
-            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 0',borderBottom:'1px solid #1a1a1a'}}><span>الوضع الهادئ 🌿</span><button onClick={toggleQuiet} style={{background: quietMode?'#10b981':'#333',border:'none',color:'white',padding:'6px 14px',borderRadius:'20px',cursor:'pointer'}}>{quietMode?'مفعل':'متوقف'}</button></div>
-            <div style={{padding:'12px 0',borderBottom:'1px solid #1a1a1a'}}><span>اللغة: العربية</span></div>
-            <div style={{padding:'12px 0'}}><a href="/privacy.html" style={{color:'#888'}}>سياسة الخصوصية</a> · <a href="/terms.html" style={{color:'#888'}}>شروط الاستخدام</a></div>
-          </div>
-          <div style={{background:'#111',borderRadius:'12px',padding:'16px',textAlign:'center',fontSize:'12px',color:'#666'}}>
-            تم بناء برمجة هذا البرنامج بواسطة ABD.ALLAH ZOHAIR OMARA<br/>WANAS v1.0<br/>app.wanas.social
-          </div>
-        </div>}
+      <main style={{maxWidth:'640px',margin:'0 auto',padding:'14px 12px'}}>
+        {notice && <div style={{background: notice.type==='error'?'#381717':'#12301e',color: notice.type==='error'?'#ffd3d3':'#d5ffe4',border:`1px solid ${notice.type==='error'?'#633030':'#285a39'}`,padding:'10px 14px',borderRadius:'12px',marginBottom:'12px',display:'flex',justifyContent:'space-between'}}><span>{notice.text}</span><button onClick={()=>setNotice(null)} style={{background:'none',border:'none',color:'inherit',fontSize:'18px'}}>×</button></div>}
+
+        {tab==='home' && (
+          <>
+            {/* COMPOSER - زي الصورة بالظبط */}
+            <div style={{background:'#121212',border:'1px solid #1e1e1e',borderRadius:'22px',padding:'18px 16px',marginBottom:'14px'}}>
+              <div style={{display:'flex',gap:'12px',alignItems:'flex-start'}} onClick={()=>setShowFullComposer(true)}>
+                <div style={{flex:1}}>
+                  <div style={{display:'flex',alignItems:'center',gap:'10px',justifyContent:'flex-start'}}>
+                    <div style={{width:'36px',height:'36px',borderRadius:'50%',background:'#1e1e1e',border:'1px solid #333',display:'grid',placeItems:'center'}}><IconUser/></div>
+                    <div>
+                      <div style={{fontSize:'18px',fontWeight:'700',lineHeight:'1.2'}}>هتونسنا النهارده؟</div>
+                      <div style={{fontSize:'13px',color:'#777',marginTop:'4px'}}>شاركنا اللي في بالك...</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {showFullComposer && (
+                <form onSubmit={submitPost} style={{marginTop:'14px'}}>
+                  <textarea value={content} onChange={e=>setContent(e.target.value)} placeholder="اكتب اللي في بالك..." rows={3} autoFocus style={{width:'100%',background:'#0a0a0a',border:'1px solid #222',borderRadius:'12px',padding:'12px',color:'white',fontSize:'14px',resize:'none',outline:'none'}}/>
+                  {file && <div style={{marginTop:'8px',background:'#0a0a0a',padding:'8px 12px',borderRadius:'10px',display:'flex',justifyContent:'space-between',fontSize:'12px'}}><span>🖼️ {file.name}</span><button type="button" onClick={()=>{setFile(null); if(fileRef.current) fileRef.current.value=''}} style={{background:'none',border:'none',color:'white',fontSize:'16px'}}>×</button></div>}
+                  <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginTop:'10px'}}>
+                    <select value={privacy} onChange={e=>setPrivacy(e.target.value)} style={{background:'#1a1a1a',color:'#aaa',border:'1px solid #222',borderRadius:'20px',padding:'6px 10px',fontSize:'12px'}}>
+                      <option value="public">🌍 عام</option>
+                      <option value="friends">👥 الأصدقاء</option>
+                      <option value="only_me">🔒 أنا فقط</option>
+                    </select>
+                    <div style={{display:'flex',gap:'8px'}}>
+                      <button type="button" onClick={()=>setShowFullComposer(false)} style={{background:'#1a1a1a',color:'#fff',border:'1px solid #333',padding:'8px 14px',borderRadius:'20px',fontSize:'12px',cursor:'pointer'}}>إلغاء</button>
+                      <button type="submit" disabled={busy || (!content.trim() && !file)} style={{background:'white',color:'black',border:'none',padding:'8px 18px',borderRadius:'20px',fontWeight:'700',fontSize:'12px',cursor:'pointer'}}>{busy?'ينشر...':'نشر'}</button>
+                    </div>
+                  </div>
+                </form>
+              )}
+
+              {!showFullComposer && (
+                <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginTop:'18px',paddingTop:'14px',borderTop:'1px solid #1e1e1e'}}>
+                  <button onClick={()=>fileRef.current?.click()} style={{display:'flex',alignItems:'center',gap:'6px',background:'none',border:'none',color:'#7ee0b9',fontSize:'14px',cursor:'pointer'}}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7ee0b9" strokeWidth="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-3.5-3.5L3 21"/></svg>
+                    صورة
+                  </button>
+                  <button onClick={()=>notify('الفيديو قريباً','info')} style={{display:'flex',alignItems:'center',gap:'6px',background:'none',border:'none',color:'#aaa',fontSize:'14px',cursor:'pointer'}}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="1.8"><rect x="2" y="6" width="14" height="12" rx="2"/><path d="M18 9l4-2v10l-4-2V9z"/></svg>
+                    فيديو
+                  </button>
+                  <button onClick={()=>notify('الصوت قريباً','info')} style={{display:'flex',alignItems:'center',gap:'6px',background:'none',border:'none',color:'#aaa',fontSize:'14px',cursor:'pointer'}}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#aaa" strokeWidth="1.8"><path d="M12 14a3 3 0 003-3V7a3 3 0 00-6 0v4a3 3 0 003 3z"/><path d="M19 10v2a7 7 0 01-14 0v-2"/><path d="M12 19v3"/></svg>
+                    صوت
+                  </button>
+                  <button onClick={()=>setShowFullComposer(true)} style={{display:'flex',alignItems:'center',gap:'4px',background:'none',border:'none',color:'#aaa',fontSize:'14px',cursor:'pointer'}}>
+                    <span style={{color:'#7ee0b9',fontSize:'18px',fontWeight:'bold'}}>+</span> المزيد
+                  </button>
+                  <input ref={fileRef} type="file" accept="image/*" onChange={e=>{setFile(e.target.files?.[0]||null); if(e.target.files?.[0]) setShowFullComposer(true)}} style={{display:'none'}}/>
+                </div>
+              )}
+            </div>
+
+            {/* FEED */}
+            <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+              {loading ? <div style={{background:'#121212',borderRadius:'16px',padding:'20px',textAlign:'center',color:'#777'}}>جارٍ التحميل...</div> :
+               !posts.length ? <div style={{background:'#121212',border:'1px solid #1e1e1e',borderRadius:'16px',padding:'30px 20px',textAlign:'center'}}>
+                 <p style={{margin:'0 0 8px',fontSize:'15px'}}>لا توجد منشورات بعد. كن أول من يشارك!</p>
+                 <p style={{margin:0,fontSize:'12px',color:'#666'}}>💡 فعل الوضع الهادئ يعرض بس منشورات أصدقائك</p>
+               </div> :
+               posts.map(p=> <PostCard key={p.id} post={p} viewerId={viewerId} onLike={toggleLike} onComment={openComments} />)}
+            </div>
+          </>
+        )}
+
+        {tab==='search' && <SearchView notify={notify} viewerId={viewerId} />}
+        {tab==='video' && <div style={{background:'#121212',borderRadius:'16px',padding:'40px 20px',textAlign:'center',color:'#666'}}><IconVideo active={false}/><p style={{marginTop:'12px'}}>فيديو - قريباً</p></div>}
+        {tab==='friends' && <FriendsView viewerId={viewerId} notify={notify} />}
+        {tab==='messages' && <MessagesView viewerId={viewerId} notify={notify} />}
+        {tab==='profile' && profile && <ProfileView profile={profile} posts={posts.filter(p=>p.user_id===viewerId)} onSignOut={onSignOut} onUpdate={loadProfile} notify={notify} />}
+        {tab==='notifications' && <NotificationsView viewerId={viewerId} />}
+        {tab==='settings' && <SettingsView profile={profile} quietMode={quietMode} onToggleQuiet={toggleQuiet} onSignOut={onSignOut} />}
       </main>
 
-      <nav className="bottom-nav" style={{position:'fixed',bottom:0,left:0,right:0,background:'#0a0a0a',borderTop:'1px solid #1a1a1a',display:'flex',justifyContent:'space-around',padding:'8px 0 calc(8px + env(safe-area-inset-bottom))',zIndex:20}}>
+      {/* BOTTOM NAV - 5 أزرار ثابتة زي الصورة بالظبط */}
+      <nav style={{position:'fixed',bottom:0,left:0,right:0,zIndex:25,background:'rgba(10,10,10,0.98)',backdropFilter:'blur(20px)',borderTop:'1px solid #1a1a1a',padding:'8px 8px calc(8px + env(safe-area-inset-bottom,0px))',display:'flex',justifyContent:'space-around'}}>
         {[
-          ['home','الرئيسية','⌂'],
-          ['video','فيديو','▶'],
-          ['councils','المجالس','🎧'],
-          ['messages','الرسائل','✉'],
-          ['settings','الإعدادات','⚙'],
-        ].map(([id,label,icon])=>(
-          <button key={id} onClick={()=>setTab(id)} style={{background:'none',border:'none',color: tab===id ? 'white' : '#666',display:'flex',flexDirection:'column',alignItems:'center',gap:'2px',cursor:'pointer',padding:'6px 18px',borderRadius:'12px',backgroundColor: tab===id ? '#1a1a1a' : 'transparent'}}><span style={{fontSize:'20px'}}>{icon}</span><small style={{fontSize:'10px'}}>{label}</small></button>
-        ))}
+          ['home','الرئيسية',IconHome],
+          ['video','فيديو',IconVideo],
+          ['friends','المجالس',IconMajalis],
+          ['messages','الرسائل',IconMessages],
+          ['settings','الإعدادات',IconSettings],
+        ].map(([id,label,Icon])=>{
+          const active = tab===id || (id==='home' && tab==='home') || (id==='settings' && tab==='profile')
+          return <button key={id} onClick={()=>setTab(id==='settings'?'settings':id)} style={{flex:1,maxWidth:'90px',background: active ? '#1c1c1c' : 'transparent',border:'none',borderRadius:'14px',color: active ? 'white' : '#888',display:'flex',flexDirection:'column',alignItems:'center',gap:'4px',padding:'8px 4px',cursor:'pointer'}}>
+            <Icon active={active}/><span style={{fontSize:'11px',fontWeight: active?'600':'400'}}>{label}</span>
+          </button>
+        })}
       </nav>
 
-      {activePost && <CommentsSheet post={activePost} viewerProfile={profile} onClose={()=>{setActivePost(null); loadFeed()}} notify={notify} onCommentAdded={()=>{setPosts(p=>p.map(x=> x.id===activePost.id ? {...x, comments_count: (x.comments_count||0)+1} : x))}}/>}
-      
-      {editingPost && (
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.8)',zIndex:101,display:'flex',alignItems:'center',justifyContent:'center',padding:'20px'}}>
-          <div style={{background:'#111',borderRadius:'16px',padding:'20px',width:'100%',maxWidth:'500px'}}>
-            <h3>تعديل المنشور</h3>
-            <textarea value={editText} onChange={e=>setEditText(e.target.value)} rows={4} style={{width:'100%',background:'#0a0a0a',border:'1px solid #333',borderRadius:'10px',padding:'10px',color:'white',marginTop:'12px'}}/>
-            <div style={{display:'flex',gap:'8px',justifyContent:'flex-end',marginTop:'12px'}}><button onClick={()=>setEditingPost(null)} style={{background:'#222',border:'none',color:'white',padding:'8px 16px',borderRadius:'20px',cursor:'pointer'}}>إلغاء</button><button onClick={saveEdit} style={{background:'white',color:'black',border:'none',padding:'8px 16px',borderRadius:'20px',cursor:'pointer'}}>حفظ</button></div>
+      {activePostComments && (
+        <div style={{position:'fixed',inset:0,zIndex:60,background:'rgba(0,0,0,0.8)',display:'flex',alignItems:'flex-end',justifyContent:'center'}}>
+          <div style={{width:'100%',maxWidth:'640px',maxHeight:'80dvh',background:'#121212',borderRadius:'20px 20px 0 0',border:'1px solid #222',display:'flex',flexDirection:'column'}}>
+            <div style={{display:'flex',justifyContent:'space-between',padding:'16px',borderBottom:'1px solid #222'}}><strong>التعليقات</strong><button onClick={()=>setActivePostComments(null)} style={{background:'none',border:'none',color:'white',fontSize:'20px',cursor:'pointer'}}>×</button></div>
+            <div style={{flex:1,overflowY:'auto',padding:'12px',display:'flex',flexDirection:'column',gap:'10px'}}>
+              {comments.map(c=><div key={c.id} style={{display:'flex',gap:'8px'}}><div style={{width:'28px',height:'28px',borderRadius:'50%',background:'#222',display:'grid',placeItems:'center',fontSize:'11px'}}>{c.profile?.display_name?.[0]||'و'}</div><div style={{background:'#1a1a1a',padding:'8px 12px',borderRadius:'12px',flex:1}}><strong style={{fontSize:'12px'}}>{c.profile?.display_name||'مستخدم'}</strong><p style={{margin:'4px 0 0',fontSize:'13px'}}>{c.content}</p></div></div>)}
+            </div>
+            <form onSubmit={sendComment} style={{display:'flex',gap:'8px',padding:'12px',borderTop:'1px solid #222'}}><input value={commentText} onChange={e=>setCommentText(e.target.value)} placeholder="اكتب تعليقاً..." style={{flex:1,background:'#0a0a0a',border:'1px solid #333',borderRadius:'20px',padding:'10px 14px',color:'white'}}/><button type="submit" style={{background:'white',color:'black',border:'none',padding:'8px 16px',borderRadius:'20px',fontWeight:'700'}}>إرسال</button></form>
           </div>
         </div>
       )}
     </div>
   )
+}
+
+function PostCard({ post, viewerId, onLike, onComment }){
+  const [mediaSrc,setMediaSrc]=useState('')
+  useEffect(()=>{
+    const path = post.media_urls?.[0]
+    if(!path) return
+    if(/^https?:\/\//.test(path)) setMediaSrc(path)
+    else supabase.storage.from('posts').createSignedUrl(path,3600).then(({data})=> setMediaSrc(data?.signedUrl||''))
+  },[post.media_urls])
+  return (
+    <div style={{background:'#121212',border:'1px solid #1e1e1e',borderRadius:'18px',padding:'14px'}}>
+      <div style={{display:'flex',gap:'10px',alignItems:'center'}}>
+        <div style={{width:'36px',height:'36px',borderRadius:'50%',background:'#1e1e1e',display:'grid',placeItems:'center',fontSize:'12px',fontWeight:'700'}}>{post.profile?.display_name?.[0]||'و'}</div>
+        <div><div style={{fontSize:'13px',fontWeight:'600'}}>{post.profile?.display_name||post.profile?.username} {post.profile?.is_verified && '✓'}</div><div style={{fontSize:'11px',color:'#777'}}>@{post.profile?.username} · {timeAgo(post.created_at)}</div></div>
+      </div>
+      {post.content && <p style={{margin:'12px 0 0',fontSize:'14px',lineHeight:'1.7',whiteSpace:'pre-wrap'}}>{post.content}</p>}
+      {mediaSrc && <img src={mediaSrc} alt="" style={{width:'100%',borderRadius:'14px',marginTop:'12px',maxHeight:'420px',objectFit:'cover'}}/>}
+      <div style={{display:'flex',gap:'12px',marginTop:'12px',paddingTop:'10px',borderTop:'1px solid #1a1a1a'}}>
+        <button onClick={()=>onLike(post)} style={{background:'none',border:'none',color: post.liked?'#ff6b7a':'#888',fontSize:'13px',cursor:'pointer'}}>{post.liked?'♥':'♡'} {post.likes_count||0}</button>
+        <button onClick={()=>onComment(post)} style={{background:'none',border:'none',color:'#888',fontSize:'13px',cursor:'pointer'}}>💬 {post.comments_count||0}</button>
+        <button onClick={()=>{ const url=`${window.location.origin}/post/${post.id}`; navigator.clipboard?.writeText(url) }} style={{background:'none',border:'none',color:'#888',fontSize:'13px',cursor:'pointer'}}>🔗 مشاركة</button>
+      </div>
+    </div>
+  )
+}
+
+function SearchView({ notify, viewerId }){
+  const [q,setQ]=useState(''); const [users,setUsers]=useState([])
+  const search = async (e)=>{
+    e.preventDefault()
+    if(!q.trim()) return
+    const { data } = await supabase.from('profiles').select(PROFILE_FIELDS).or(`username.ilike.%${q}%,display_name.ilike.%${q}%`).limit(15)
+    setUsers(data||[])
+  }
+  const add = async (id)=>{
+    const { error } = await supabase.from('friend_requests').insert({from_user:viewerId, to_user:id, status:'pending'})
+    if(error) notify(error.message,'error'); else notify('تم إرسال الطلب','success')
+  }
+  return <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+    <form onSubmit={search} style={{display:'flex',gap:'8px'}}><input value={q} onChange={e=>setQ(e.target.value)} placeholder="ابحث عن اسم أو @username" style={{flex:1,background:'#121212',border:'1px solid #222',borderRadius:'20px',padding:'12px 14px',color:'white'}}/><button type="submit" style={{background:'white',color:'black',border:'none',padding:'10px 18px',borderRadius:'20px',fontWeight:'700'}}>بحث</button></form>
+    {users.map(u=><div key={u.id} style={{background:'#121212',border:'1px solid #1e1e1e',borderRadius:'14px',padding:'12px',display:'flex',justifyContent:'space-between',alignItems:'center'}}><div style={{display:'flex',gap:'10px',alignItems:'center'}}><div style={{width:'36px',height:'36px',borderRadius:'50%',background:'#222',display:'grid',placeItems:'center'}}>{u.display_name?.[0]}</div><div><strong style={{fontSize:'13px'}}>{u.display_name}</strong><br/><small style={{color:'#777'}}>@{u.username}</small></div></div><button onClick={()=>add(u.id)} style={{background:'#1e1e1e',border:'1px solid #333',color:'white',padding:'6px 12px',borderRadius:'20px',fontSize:'12px',cursor:'pointer'}}>إضافة</button></div>)}
+  </div>
+}
+
+function FriendsView({ viewerId, notify }){
+  const [reqs,setReqs]=useState([]); const [friends,setFriends]=useState([])
+  const load = async ()=>{
+    const { data: r } = await supabase.from('friend_requests').select('id,from_user,to_user').eq('to_user',viewerId).eq('status','pending')
+    const ids = (r||[]).map(x=>x.from_user)
+    const { data: profs } = ids.length ? await supabase.from('profiles').select(PROFILE_FIELDS).in('id',ids) : {data:[]}
+    const map = Object.fromEntries((profs||[]).map(p=>[p.id,p]))
+    setReqs((r||[]).map(x=>({...x, profile: map[x.from_user]})))
+    const { data: f } = await supabase.from('friends').select('user_a,user_b').or(`user_a.eq.${viewerId},user_b.eq.${viewerId}`)
+    const fIds = (f||[]).map(x=> x.user_a===viewerId?x.user_b:x.user_a)
+    const { data: fProfs } = fIds.length ? await supabase.from('profiles').select(PROFILE_FIELDS).in('id',fIds) : {data:[]}
+    setFriends(fProfs||[])
+  }
+  useEffect(()=>{load()},[])
+  return <div style={{display:'flex',flexDirection:'column',gap:'16px'}}>
+    <div style={{background:'#121212',borderRadius:'14px',padding:'16px'}}><h3 style={{margin:'0 0 12px'}}>طلبات الصداقة ({reqs.length})</h3>{!reqs.length ? <p style={{color:'#666',fontSize:'13px'}}>لا توجد طلبات</p> : reqs.map(r=><div key={r.id} style={{display:'flex',justifyContent:'space-between',padding:'8px 0',borderBottom:'1px solid #1a1a1a'}}><span>{r.profile?.display_name}</span><div style={{display:'flex',gap:'6px'}}><button onClick={async()=>{ const a=viewerId<r.from_user?viewerId:r.from_user; const b=viewerId<r.from_user?r.from_user:viewerId; await supabase.from('friends').insert({user_a:a,user_b:b}); await supabase.from('friend_requests').update({status:'accepted'}).eq('id',r.id); load() }} style={{background:'#10b981',border:'none',padding:'6px 12px',borderRadius:'20px',color:'white',cursor:'pointer'}}>قبول</button><button onClick={async()=>{ await supabase.from('friend_requests').update({status:'declined'}).eq('id',r.id); load() }} style={{background:'#222',border:'none',padding:'6px 12px',borderRadius:'20px',color:'white',cursor:'pointer'}}>رفض</button></div></div>)}</div>
+    <div style={{background:'#121212',borderRadius:'14px',padding:'16px'}}><h3 style={{margin:'0 0 12px'}}>أصدقائي ({friends.length})</h3><div style={{display:'flex',flexWrap:'wrap',gap:'12px'}}>{friends.map(f=><div key={f.id} style={{textAlign:'center'}}><div style={{width:'48px',height:'48px',borderRadius:'50%',background:'#222',display:'grid',placeItems:'center'}}>{f.display_name?.[0]}</div><small style={{fontSize:'11px'}}>{f.display_name}</small></div>)}</div></div>
+  </div>
+}
+
+function MessagesView({ viewerId }){
+  return <div style={{background:'#121212',borderRadius:'14px',padding:'40px 20px',textAlign:'center',color:'#666'}}><div style={{fontSize:'32px'}}>💬</div><p>الرسائل - افتح من اكتشف وأضف صديق ثم راسله</p></div>
+}
+function NotificationsView({ viewerId }){
+  const [notifs,setNotifs]=useState([])
+  useEffect(()=>{ supabase.from('notifications').select('id,type,created_at,from_user').eq('user_id',viewerId).order('created_at',{ascending:false}).limit(20).then(async ({data})=>{ const ids=[...new Set((data||[]).map(n=>n.from_user).filter(Boolean))]; const {data:profs}= ids.length ? await supabase.from('profiles').select(PROFILE_FIELDS).in('id',ids) : {data:[]}; const map=Object.fromEntries((profs||[]).map(p=>[p.id,p])); setNotifs((data||[]).map(n=>({...n, from_profile: map[n.from_user]}))); if((data||[]).length) supabase.from('notifications').update({is_read:true}).eq('user_id',viewerId) }) },[viewerId])
+  return <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>{!notifs.length ? <div style={{background:'#121212',borderRadius:'14px',padding:'20px',textAlign:'center',color:'#666'}}>لا توجد إشعارات</div> : notifs.map(n=><div key={n.id} style={{background:'#121212',borderRadius:'12px',padding:'12px',display:'flex',gap:'10px'}}><div style={{width:'32px',height:'32px',borderRadius:'50%',background:'#222',display:'grid',placeItems:'center'}}>{n.from_profile?.display_name?.[0]||'و'}</div><div><p style={{margin:0,fontSize:'13px'}}><strong>{n.from_profile?.display_name||'مستخدم'}</strong> {n.type==='like'?'أعجب بمنشورك': n.type==='comment'?'علق على منشورك':'أرسل طلب صداقة'}</p><small style={{color:'#666'}}>{timeAgo(n.created_at)}</small></div></div>)}</div>
+}
+function ProfileView({ profile, posts, onSignOut, onUpdate, notify }){
+  const [edit,setEdit]=useState(false); const [name,setName]=useState(profile.display_name||''); const [bio,setBio]=useState(profile.bio||'')
+  return <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+    <div style={{background:'#121212',borderRadius:'16px',padding:'20px',textAlign:'center'}}>
+      <div style={{width:'72px',height:'72px',borderRadius:'50%',background:'#222',margin:'0 auto 12px',display:'grid',placeItems:'center',fontSize:'24px',fontWeight:'700'}}>{profile.display_name?.[0]||'و'}</div>
+      <h2 style={{margin:'0 0 4px'}}>{profile.display_name}</h2><p style={{margin:0,color:'#666'}}>@{profile.username}</p>
+      {profile.bio && <p style={{marginTop:'12px',fontSize:'13px',color:'#aaa'}}>{profile.bio}</p>}
+      <div style={{display:'flex',gap:'20px',justifyContent:'center',marginTop:'16px'}}><div><strong>{posts.length}</strong><br/><small style={{color:'#666'}}>منشور</small></div></div>
+      {!edit ? <button onClick={()=>setEdit(true)} style={{marginTop:'16px',background:'#1e1e1e',border:'1px solid #333',color:'white',padding:'8px 16px',borderRadius:'20px',cursor:'pointer'}}>تعديل الملف</button> :
+       <div style={{marginTop:'16px',display:'flex',flexDirection:'column',gap:'8px'}}><input value={name} onChange={e=>setName(e.target.value)} placeholder="الاسم" style={{background:'#0a0a0a',border:'1px solid #333',borderRadius:'10px',padding:'10px',color:'white'}}/><textarea value={bio} onChange={e=>setBio(e.target.value)} placeholder="النبذة" rows={2} style={{background:'#0a0a0a',border:'1px solid #333',borderRadius:'10px',padding:'10px',color:'white'}}/><div style={{display:'flex',gap:'8px',justifyContent:'center'}}><button onClick={async()=>{ const {error}=await supabase.from('profiles').update({display_name:name,bio}).eq('id',profile.id); if(error) notify(error.message,'error'); else { notify('تم الحفظ','success'); setEdit(false); onUpdate() } }} style={{background:'white',color:'black',border:'none',padding:'8px 16px',borderRadius:'20px',cursor:'pointer'}}>حفظ</button><button onClick={()=>setEdit(false)} style={{background:'#222',border:'none',color:'white',padding:'8px 16px',borderRadius:'20px',cursor:'pointer'}}>إلغاء</button></div></div>}
+    </div>
+    <button onClick={onSignOut} style={{background:'#1a1a1a',border:'1px solid #333',color:'#fff',padding:'12px',borderRadius:'12px',cursor:'pointer'}}>تسجيل خروج</button>
+    <div style={{textAlign:'center',fontSize:'10px',color:'#444',padding:'12px'}}>تم بناء برمجة هذا البرنامج بواسطة ABD.ALLAH ZOHAIR OMARA<br/>WANAS</div>
+  </div>
+}
+function SettingsView({ profile, quietMode, onToggleQuiet, onSignOut }){
+  return <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+    <div style={{background:'#121212',borderRadius:'14px',padding:'16px'}}>
+      <h3 style={{margin:'0 0 12px'}}>الإعدادات</h3>
+      <div style={{display:'flex',justifyContent:'space-between',padding:'12px 0',borderBottom:'1px solid #1a1a1a'}}><span>الوضع الهادئ 🌿</span><button onClick={onToggleQuiet} style={{background: quietMode?'#10b981':'#333',border:'none',color:'white',padding:'6px 14px',borderRadius:'20px',cursor:'pointer'}}>{quietMode?'مفعل':'متوقف'}</button></div>
+      <div style={{padding:'12px 0',fontSize:'13px'}}><a href="/privacy.html" style={{color:'#888',textDecoration:'none'}}>سياسة الخصوصية</a> · <a href="/terms.html" style={{color:'#888',textDecoration:'none'}}>شروط الاستخدام</a></div>
+    </div>
+    <div style={{background:'#121212',borderRadius:'14px',padding:'16px',textAlign:'center',fontSize:'11px',color:'#555'}}>تم بناء برمجة هذا البرنامج بواسطة ABD.ALLAH ZOHAIR OMARA<br/>WANAS v1.0 - app.wanas.social</div>
+  </div>
 }
